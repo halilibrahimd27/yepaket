@@ -46,6 +46,7 @@ dosyasına bakın.
 | [docs/API_CONTRACT.md](docs/API_CONTRACT.md) | Backend ↔ istemci sözleşmesi — **tek kaynak** |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Sistem mimarisi, veri akışları, teknoloji kararları |
 | [docs/BUILD_PLAN.md](docs/BUILD_PLAN.md) | Yayına çıkış yol haritası ve ilerleme durumu |
+| [docs/LOCAL_DEV.md](docs/LOCAL_DEV.md) | Her şeyi yerelde çalıştırma (Docker ile, kurulum gerektirmeden) |
 | [web/README.md](web/README.md) | Web istemcisi ayrıntıları |
 | [mobile/README.md](mobile/README.md) | Mobil istemci ayrıntıları |
 

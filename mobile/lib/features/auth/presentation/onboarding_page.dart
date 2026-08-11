@@ -60,10 +60,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
         children: [
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 450),
-            child: Image.asset(
-              item.image,
+            // AnimatedSwitcher çocuğuna gevşek kısıt verir; boyut açıkça
+            // verilmezse BoxFit.cover görseli doğal boyutuna düşürür ve
+            // ekranın ortasında bir bant olarak kalır.
+            child: SizedBox.expand(
               key: ValueKey(item.image),
-              fit: BoxFit.cover,
+              child: Image.asset(item.image, fit: BoxFit.cover),
             ),
           ),
           const DecoratedBox(
