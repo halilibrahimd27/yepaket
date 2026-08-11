@@ -1,4 +1,3 @@
-import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
@@ -6,6 +5,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
+import { configureApp } from './bootstrap';
 import type { Env } from './config/env';
 
 async function bootstrap(): Promise<void> {
@@ -50,20 +50,8 @@ async function bootstrap(): Promise<void> {
     maxAge: 86_400,
   });
 
-  // Sözleşmedeki taban yol: https://api.yepaket.app/v1
-  // Sağlık uçları yük dengeleyici için önekin dışında tutulur.
-  app.setGlobalPrefix('v1', { exclude: ['health', 'health/live', 'health/ready'] });
+  configureApp(app);
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      // Şemada tanımsız alan gönderilirse sessizce yok saymak yerine hata ver:
-      // istemci bir alanı yanlış adlandırdığında bunu fark etmesi gerekir.
-      forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: { enableImplicitConversion: true },
-    }),
-  );
 
   if (config.get('SWAGGER_ENABLED', { infer: true })) {
     const documentConfig = new DocumentBuilder()

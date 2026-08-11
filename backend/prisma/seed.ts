@@ -27,14 +27,29 @@ const DEMO_PASSWORD = 'demo1234';
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
-/** Bugünün (yerel saat) verilen saat-dakikasına denk gelen UTC anı. */
-function todayAt(hour: number, minute: number, dayOffset = 0): Date {
-  return DateTime.now()
+/**
+ * Verilen yerel saat-dakikanın UTC karşılığı.
+ *
+ * `rollIfPast` verildiğinde, hesaplanan an çoktan geçmişse aynı saat ertesi
+ * güne taşınır. Aksi hâlde seed akşam saatlerinde çalıştırıldığında tüm
+ * paketlerin teslim aralığı geçmiş olur ve keşif listesi boş görünür.
+ */
+function localTimeToUtc(
+  hour: number,
+  minute: number,
+  dayOffset = 0,
+  rollIfPast = false,
+): Date {
+  let moment = DateTime.now()
     .setZone(ISTANBUL)
     .plus({ days: dayOffset })
-    .set({ hour, minute, second: 0, millisecond: 0 })
-    .toUTC()
-    .toJSDate();
+    .set({ hour, minute, second: 0, millisecond: 0 });
+
+  if (rollIfPast && moment <= DateTime.now()) {
+    moment = moment.plus({ days: 1 });
+  }
+
+  return moment.toUTC().toJSDate();
 }
 
 const storeSeeds = [
@@ -156,6 +171,16 @@ const storeSeeds = [
 ];
 
 async function main(): Promise<void> {
+  // Teslim aralığı geçmiş ve hiç siparişi olmayan demo paketlerini temizle.
+  // Seed birden çok kez çalıştırıldığında süresi dolmuş kayıtlar birikmesin;
+  // sipariş almış olanlara dokunulmaz çünkü geçmiş veriyi bozmak istemeyiz.
+  const removed = await prisma.bag.deleteMany({
+    where: { pickupEndsAt: { lt: new Date() }, orders: { none: {} } },
+  });
+  if (removed.count > 0) {
+    console.info(`Süresi dolmuş ${removed.count} demo paketi temizlendi.`);
+  }
+
   const passwordHash = await hash(DEMO_PASSWORD);
   const assetBase = `${process.env.API_PUBLIC_URL ?? 'http://localhost:8080'}/static/bags`;
 
@@ -249,7 +274,13 @@ async function main(): Promise<void> {
         },
       }));
 
-    const pickupStartsAt = todayAt(startHour, startMinute, bag.dayOffset);
+    const rollIfPast = bag.dayOffset === 0;
+    const pickupStartsAt = localTimeToUtc(startHour, startMinute, bag.dayOffset, rollIfPast);
+    // Bitiş, başlangıçla aynı güne düşmeli: başlangıç ertesi güne kaydıysa
+    // bitiş de kaymalı, yoksa aralık ters döner ve CHECK kısıtı reddeder.
+    const pickupEndsAt = new Date(
+      pickupStartsAt.getTime() + ((endHour * 60 + endMinute) - (startHour * 60 + startMinute)) * 60_000,
+    );
     const existingBag = await prisma.bag.findFirst({
       where: { storeId: store.id, pickupStartsAt },
     });
@@ -268,7 +299,7 @@ async function main(): Promise<void> {
           totalQuantity: bag.quantity,
           availableQuantity: bag.quantity,
           pickupStartsAt,
-          pickupEndsAt: todayAt(endHour, endMinute, bag.dayOffset),
+          pickupEndsAt,
           status: BagStatus.PUBLISHED,
         },
       });
