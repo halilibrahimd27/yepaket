@@ -10,6 +10,7 @@ import type { Request, Response } from 'express';
 import { Prisma } from '../../generated/prisma/client';
 import { AppError } from '../errors/app-error';
 import { ErrorCode, type ErrorCodeValue } from '../errors/error-codes';
+import { deepSnakeCase } from '../util/case';
 
 interface NormalizedError {
   status: HttpStatus;
@@ -63,7 +64,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
       error: {
         code: normalized.code,
         message: normalized.message,
-        details: normalized.details ?? {},
+        // Başarılı yanıtlar gibi hata ayrıntıları da snake_case olmalı;
+        // aksi hâlde istemci aynı yanıtta iki farklı isimlendirmeyle
+        // karşılaşır.
+        details: deepSnakeCase(normalized.details ?? {}),
         request_id: request.id ?? null,
       },
     });
