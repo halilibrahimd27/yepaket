@@ -1,0 +1,132 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Aynı dal için yeni push geldiğinde eski koşuyu iptal et.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_USER: yepaket
+          POSTGRES_PASSWORD: yepaket_test
+          POSTGRES_DB: yepaket_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U yepaket -d yepaket_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+
+    env:
+      DATABASE_URL: postgresql://yepaket:yepaket_test@localhost:5432/yepaket_test
+      REDIS_URL: redis://localhost:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Backend var mı?
+        id: exists
+        run: echo "found=${{ hashFiles('backend/package.json') != '' }}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        if: steps.exists.outputs.found == 'true'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Bağımlılıklar
+        if: steps.exists.outputs.found == 'true'
+        working-directory: backend
+        run: npm ci
+
+      - name: Lint
+        if: steps.exists.outputs.found == 'true'
+        working-directory: backend
+        run: npm run lint
+
+      - name: Migration
+        if: steps.exists.outputs.found == 'true'
+        working-directory: backend
+        run: npm run db:migrate:deploy
+
+      - name: Test
+        if: steps.exists.outputs.found == 'true'
+        working-directory: backend
+        run: npm test
+
+      - name: Build
+        if: steps.exists.outputs.found == 'true'
+        working-directory: backend
+        run: npm run build
+
+  web:
+    name: Web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Bağımlılıklar
+        working-directory: web
+        run: npm ci
+
+      - name: Lint
+        working-directory: web
+        run: npm run lint
+
+      - name: Test (build dahil)
+        working-directory: web
+        run: npm test
+
+  mobile:
+    name: Mobil
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version-file: mobile/pubspec.yaml
+          cache: true
+
+      - name: Bağımlılıklar
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Biçim kontrolü
+        working-directory: mobile
+        run: dart format --set-exit-if-changed lib test
+
+      - name: Analiz
+        working-directory: mobile
+        run: flutter analyze
+
+      - name: Test
+        working-directory: mobile
+        run: flutter test

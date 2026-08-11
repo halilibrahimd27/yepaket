@@ -1,0 +1,55 @@
+name: yepaket
+
+services:
+  postgres:
+    image: postgis/postgis:17-3.5
+    container_name: yepaket-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-yepaket}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-yepaket_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-yepaket}
+      # Türkçe metin sıralaması ve karşılaştırması için.
+      LANG: tr_TR.utf8
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-yepaket} -d ${POSTGRES_DB:-yepaket}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: yepaket-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Geliştirmede giden e-postaları yakalar; gerçek SMTP'ye istek gitmez.
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: yepaket-mailpit
+    restart: unless-stopped
+    ports:
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+    environment:
+      MP_MAX_MESSAGES: 500
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
+volumes:
+  postgres-data:
+  redis-data:

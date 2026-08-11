@@ -1,0 +1,77 @@
+# ---------------------------------------------------------------------------
+# Ortak
+# ---------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+*.log
+*.pem
+*.tsbuildinfo
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.recommended.json
+
+# Ortam değişkenleri — .env.example dosyaları versiyonlanır, gerçekleri asla.
+.env
+.env.*
+!.env.example
+!*.env.example
+
+# ---------------------------------------------------------------------------
+# Node / backend / web
+# ---------------------------------------------------------------------------
+node_modules/
+/coverage/
+**/coverage/
+dist/
+build/
+!web/build/
+.next/
+.vinext/
+.vinext-stale/
+out/
+.wrangler/
+.turbo/
+.devserver*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/releases
+!.yarn/versions
+
+# ---------------------------------------------------------------------------
+# Flutter / mobil
+# ---------------------------------------------------------------------------
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/build/
+mobile/ios/Pods/
+mobile/ios/.symlinks/
+mobile/ios/Flutter/Flutter.framework
+mobile/ios/Flutter/Flutter.podspec
+mobile/ios/Flutter/Generated.xcconfig
+mobile/ios/Flutter/ephemeral/
+mobile/ios/Runner/GeneratedPluginRegistrant.*
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android/app/debug/
+mobile/android/app/profile/
+mobile/android/app/release/
+mobile/android/key.properties
+*.jks
+*.keystore
+!mobile/android/app/debug.keystore
+
+# ---------------------------------------------------------------------------
+# Altyapı / yerel veri
+# ---------------------------------------------------------------------------
+infra/data/
+*.sqlite
+*.sqlite3
+/work/
+/outputs/
