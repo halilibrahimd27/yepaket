@@ -1,0 +1,736 @@
+// YePaket veri modeli.
+//
+// Kurallar:
+// - Tüm parasal alanlar tam sayı KURUŞ'tur (`...Minor`). Para için hiçbir
+//   katmanda kayan noktalı sayı kullanılmaz.
+// - Zaman damgaları UTC saklanır; teslim aralıkları kullanıcıya
+//   Europe/Istanbul'a çevrilerek gösterilir.
+// - Konum `latitude`/`longitude` olarak tutulur; yakınlık sorguları PostGIS
+//   ifade indeksi üzerinden yapılır (bkz. migration'daki GiST indeksleri).
+// - Silme işlemleri kullanıcı verisinde yumuşaktır (`deletedAt`), finansal
+//   kayıtlarda hiç yapılmaz.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+// Eklentiler (postgis, pgcrypto, pg_trgm, citext, unaccent) ilk migration
+// içinde CREATE EXTENSION ile kurulur; böylece migration'lar kendi kendine
+// yeterlidir ve CI'daki boş veritabanında da çalışır.
+// Bağlantı adresi Prisma 7'de şemada değil; CLI için `prisma.config.ts`,
+// çalışma zamanı için `PrismaService` içindeki driver adapter sağlar.
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enum'lar
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  CONSUMER
+  PARTNER
+  ADMIN
+}
+
+enum AuthProvider {
+  PASSWORD
+  GOOGLE
+  APPLE
+  MICROSOFT
+}
+
+enum DevicePlatform {
+  IOS
+  ANDROID
+  WEB
+}
+
+enum StoreStatus {
+  PENDING // Başvuru alındı, incelemede
+  APPROVED // Yayında
+  SUSPENDED // Geçici olarak durduruldu
+  REJECTED
+}
+
+enum StoreMemberRole {
+  OWNER
+  MANAGER
+  STAFF
+}
+
+enum BagCategory {
+  BAKERY
+  MARKET
+  CAFE
+  RESTAURANT
+}
+
+enum BagStatus {
+  DRAFT
+  PUBLISHED
+  PAUSED
+  SOLD_OUT
+  EXPIRED
+  CANCELLED
+}
+
+enum PublishMode {
+  ONCE
+  DAILY
+  WEEKLY
+}
+
+/// Sipariş yaşam döngüsü:
+/// PAYMENT_PENDING -> PAID -> PICKUP_PENDING -> COLLECTED
+///                 \-> CANCELLED / REFUNDED / NO_SHOW
+enum OrderStatus {
+  PAYMENT_PENDING
+  PAID
+  PICKUP_PENDING
+  COLLECTED
+  CANCELLED
+  NO_SHOW
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  CAPTURED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum RefundStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+}
+
+enum NotificationType {
+  BAG_AVAILABLE
+  ORDER_STATUS
+  PICKUP_REMINDER
+  IMPACT
+  CAMPAIGN
+  SUPPORT
+}
+
+enum SupportTicketStatus {
+  OPEN
+  PENDING
+  RESOLVED
+  CLOSED
+}
+
+enum SupportCategory {
+  ORDER
+  ACCOUNT
+  PAYMENT
+  PARTNER
+  OTHER
+}
+
+enum PartnerApplicationStatus {
+  NEW
+  CONTACTED
+  APPROVED
+  REJECTED
+}
+
+// ---------------------------------------------------------------------------
+// Kimlik ve kullanıcı
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique @db.Citext
+  passwordHash String?   @map("password_hash")
+  name         String
+  phone        String?
+  avatarUrl    String?   @map("avatar_url")
+  role         UserRole  @default(CONSUMER)
+  locale       String    @default("tr-TR")
+  timezone     String    @default("Europe/Istanbul")
+
+  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz(3)
+  lastLoginAt     DateTime? @map("last_login_at") @db.Timestamptz(3)
+
+  /// KVKK: hesap silme talebinde kişisel alanlar anonimleştirilir ve bu alan
+  /// doldurulur. Finansal kayıtlar (sipariş, ödeme) yasal saklama süresince
+  /// kalır ama kullanıcıya bağlanamaz hâle gelir.
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  oauthAccounts  OAuthAccount[]
+  sessions       Session[]
+  devices        Device[]
+  storeMembers   StoreMember[]
+  favorites      Favorite[]
+  orders         Order[]
+  ratings        Rating[]
+  notifications  Notification[]
+  supportTickets SupportTicket[]
+  auditLogs      AuditLog[]
+
+  @@index([role])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model OAuthAccount {
+  id                String       @id @default(uuid()) @db.Uuid
+  userId            String       @map("user_id") @db.Uuid
+  provider          AuthProvider
+  providerAccountId String       @map("provider_account_id")
+  email             String?      @db.Citext
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("oauth_accounts")
+}
+
+/// Yenileme jetonu oturumu. Jeton düz metin saklanmaz; yalnızca hash'i tutulur
+/// ve her kullanımda döner (rotation). `replacedById` zinciri, kullanılmış bir
+/// jetonun tekrar sunulmasını (hırsızlık sinyali) tespit etmeye yarar.
+model Session {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  refreshTokenHash String   @unique @map("refresh_token_hash")
+  deviceId         String   @map("device_id")
+  platform         DevicePlatform
+  userAgent        String?  @map("user_agent")
+  ipAddress        String?  @map("ip_address")
+
+  expiresAt   DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt   DateTime? @map("revoked_at") @db.Timestamptz(3)
+  revokeReason String?  @map("revoke_reason")
+  replacedById String?  @map("replaced_by_id") @db.Uuid
+
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastUsedAt DateTime @default(now()) @map("last_used_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+/// Push bildirimi hedefi. Bir kullanıcının birden çok cihazı olabilir.
+model Device {
+  id         String         @id @default(uuid()) @db.Uuid
+  userId     String         @map("user_id") @db.Uuid
+  deviceId   String         @map("device_id")
+  platform   DevicePlatform
+  pushToken  String?        @map("push_token")
+  appVersion String?        @map("app_version")
+  locale     String         @default("tr-TR")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, deviceId])
+  @@index([pushToken])
+  @@map("devices")
+}
+
+// ---------------------------------------------------------------------------
+// İşletme
+// ---------------------------------------------------------------------------
+
+model Store {
+  id          String      @id @default(uuid()) @db.Uuid
+  name        String
+  slug        String      @unique
+  category    BagCategory
+  description String?
+  phone       String?
+  email       String?     @db.Citext
+
+  addressLine String  @map("address_line")
+  district    String
+  city        String
+  postalCode  String? @map("postal_code")
+
+  /// WGS84. Yakınlık sorguları bu iki kolon üzerine kurulu PostGIS ifade
+  /// indeksini kullanır.
+  latitude  Float
+  longitude Float
+
+  logoUrl  String? @map("logo_url")
+  coverUrl String? @map("cover_url")
+
+  status StoreStatus @default(PENDING)
+
+  /// Platform komisyonu, baz puan (1/100 %). 1200 = %12.
+  commissionRateBps Int @default(1200) @map("commission_rate_bps")
+
+  /// Gösterim amaçlı çalışma saatleri (yerel saat, "HH:mm").
+  openingTime String? @map("opening_time")
+  closingTime String? @map("closing_time")
+
+  /// Türetilmiş istatistikler; değerlendirme ve teslim akışında güncellenir.
+  ratingAverage  Float @default(0) @map("rating_average")
+  ratingCount    Int   @default(0) @map("rating_count")
+  rescuedBagCount Int  @default(0) @map("rescued_bag_count")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  members   StoreMember[]
+  templates BagTemplate[]
+  bags      Bag[]
+  orders    Order[]
+  favorites Favorite[]
+  ratings   Rating[]
+  payouts   Payout[]
+
+  @@index([status])
+  @@index([city, district])
+  @@map("stores")
+}
+
+/// Bir işletmeye erişebilen kullanıcılar. Partner uçlarında yetki kontrolü
+/// rolle değil, bu tablodaki üyelikle yapılır.
+model StoreMember {
+  id      String          @id @default(uuid()) @db.Uuid
+  storeId String          @map("store_id") @db.Uuid
+  userId  String          @map("user_id") @db.Uuid
+  role    StoreMemberRole @default(STAFF)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, userId])
+  @@index([userId])
+  @@map("store_members")
+}
+
+// ---------------------------------------------------------------------------
+// Paketler
+// ---------------------------------------------------------------------------
+
+/// Tekrar eden paket tanımı. İşletme "her gün 20:00-20:30, 8 adet" derse
+/// zamanlanmış iş bu şablondan günlük `Bag` kayıtları üretir.
+model BagTemplate {
+  id      String      @id @default(uuid()) @db.Uuid
+  storeId String      @map("store_id") @db.Uuid
+  title   String
+  category BagCategory
+  description String?
+  imageUrls   String[] @map("image_urls")
+
+  originalValueMinor Int @map("original_value_minor")
+  salePriceMinor     Int @map("sale_price_minor")
+  currency           String @default("TRY")
+  defaultQuantity    Int    @map("default_quantity")
+
+  /// Gün içindeki teslim aralığı, gece yarısından itibaren dakika cinsinden
+  /// (yerel saat). 20:00 -> 1200.
+  pickupStartMinute Int @map("pickup_start_minute")
+  pickupEndMinute   Int @map("pickup_end_minute")
+
+  publishMode PublishMode @default(ONCE)
+  /// WEEKLY modunda yayınlanacak günler (1 = Pazartesi ... 7 = Pazar).
+  weekdays    Int[]       @default([])
+  isActive    Boolean     @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  bags  Bag[]
+
+  @@index([storeId, isActive])
+  @@map("bag_templates")
+}
+
+/// Satışa çıkmış tek bir paket yayını (belirli bir gün ve teslim aralığı).
+/// Stok bu kayıt üzerinde tutulur ve satır kilidiyle düşülür.
+model Bag {
+  id         String       @id @default(uuid()) @db.Uuid
+  storeId    String       @map("store_id") @db.Uuid
+  templateId String?      @map("template_id") @db.Uuid
+
+  title       String
+  category    BagCategory
+  description String?
+  imageUrls   String[]    @map("image_urls")
+
+  originalValueMinor Int    @map("original_value_minor")
+  salePriceMinor     Int    @map("sale_price_minor")
+  currency           String @default("TRY")
+
+  totalQuantity     Int @map("total_quantity")
+  /// Satın alınabilir kalan adet. Sipariş transaction'ı içinde
+  /// `SELECT ... FOR UPDATE` ile düşülür; CHECK kısıtı negatife düşmesini
+  /// veritabanı seviyesinde engeller.
+  availableQuantity Int @map("available_quantity")
+
+  pickupStartsAt DateTime @map("pickup_starts_at") @db.Timestamptz(3)
+  pickupEndsAt   DateTime @map("pickup_ends_at") @db.Timestamptz(3)
+
+  status BagStatus @default(PUBLISHED)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  store    Store        @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  template BagTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  orders   Order[]
+
+  @@index([status, pickupStartsAt])
+  @@index([storeId, pickupStartsAt])
+  @@index([category, status])
+  @@map("bags")
+}
+
+/// Favoriler işletme düzeyindedir: paket yayınları her gün değiştiği için
+/// "yeniden satışa çıkınca haber ver" ancak işletmeye bağlanınca anlamlıdır.
+/// Sözleşmedeki `POST /bags/{id}/favorite` ucu paketin işletmesine çevrilir.
+model Favorite {
+  id      String @id @default(uuid()) @db.Uuid
+  userId  String @map("user_id") @db.Uuid
+  storeId String @map("store_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, storeId])
+  @@index([storeId])
+  @@map("favorites")
+}
+
+// ---------------------------------------------------------------------------
+// Sipariş ve ödeme
+// ---------------------------------------------------------------------------
+
+model Order {
+  id      String @id @default(uuid()) @db.Uuid
+  /// İnsan tarafından okunabilir sipariş numarası: "YP-1048".
+  orderNo String @unique @map("order_no")
+
+  userId  String @map("user_id") @db.Uuid
+  storeId String @map("store_id") @db.Uuid
+  bagId   String @map("bag_id") @db.Uuid
+
+  quantity       Int
+  unitPriceMinor Int    @map("unit_price_minor")
+  totalMinor     Int    @map("total_minor")
+  /// Platform komisyonu; sipariş anındaki oran dondurulur ki sonradan
+  /// yapılan oran değişikliği geçmiş hakedişi değiştirmesin.
+  commissionMinor Int   @map("commission_minor")
+  /// İşletmenin bu siparişten hak ettiği net tutar.
+  netMinor       Int    @map("net_minor")
+  currency       String @default("TRY")
+
+  status OrderStatus @default(PAYMENT_PENDING)
+
+  /// Sipariş anındaki teslim aralığı; paket sonradan değişse bile sipariş
+  /// kendi aralığını korur.
+  pickupStartsAt DateTime @map("pickup_starts_at") @db.Timestamptz(3)
+  pickupEndsAt   DateTime @map("pickup_ends_at") @db.Timestamptz(3)
+
+  /// Mağaza personelinin görebileceği kısa doğrulama kodu.
+  pickupCode String @map("pickup_code")
+
+  /// Teslim onayı için tek kullanımlık nonce (hash'lenmiş saklanır).
+  pickupNonceHash      String?   @map("pickup_nonce_hash")
+  pickupNonceExpiresAt DateTime? @map("pickup_nonce_expires_at") @db.Timestamptz(3)
+
+  /// "Arkadaşına gönder" bağlantısı için ayrı, süreli jeton.
+  sharedTokenHash      String?   @map("shared_token_hash")
+  sharedTokenExpiresAt DateTime? @map("shared_token_expires_at") @db.Timestamptz(3)
+
+  /// Ödeme onaylanmazsa rezervasyonun geri verileceği an.
+  reservationExpiresAt DateTime? @map("reservation_expires_at") @db.Timestamptz(3)
+
+  paidAt      DateTime? @map("paid_at") @db.Timestamptz(3)
+  collectedAt DateTime? @map("collected_at") @db.Timestamptz(3)
+  cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz(3)
+  cancelReason String?  @map("cancel_reason")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user     User      @relation(fields: [userId], references: [id])
+  store    Store     @relation(fields: [storeId], references: [id])
+  bag      Bag       @relation(fields: [bagId], references: [id])
+  payments Payment[]
+  rating   Rating?
+  payoutId String?   @map("payout_id") @db.Uuid
+  payout   Payout?   @relation(fields: [payoutId], references: [id])
+
+  @@index([userId, status])
+  @@index([storeId, status])
+  @@index([bagId])
+  @@index([status, reservationExpiresAt])
+  @@index([payoutId])
+  @@map("orders")
+}
+
+model Payment {
+  id      String @id @default(uuid()) @db.Uuid
+  orderId String @map("order_id") @db.Uuid
+
+  provider          String
+  providerPaymentId String? @map("provider_payment_id")
+  /// Sağlayıcıdan dönen ham durum; hata ayıklama ve mutabakat için.
+  providerStatus    String? @map("provider_status")
+
+  status      PaymentStatus @default(PENDING)
+  amountMinor Int           @map("amount_minor")
+  currency    String        @default("TRY")
+
+  refundedAmountMinor Int @default(0) @map("refunded_amount_minor")
+
+  /// Kart verisi ASLA saklanmaz; yalnızca sağlayıcı jetonu ve maskeli son
+  /// dört hane gösterim için tutulur.
+  cardLastFour String? @map("card_last_four")
+  cardBrand    String? @map("card_brand")
+
+  failureCode    String? @map("failure_code")
+  failureMessage String? @map("failure_message")
+
+  authorizedAt DateTime? @map("authorized_at") @db.Timestamptz(3)
+  capturedAt   DateTime? @map("captured_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  order   Order    @relation(fields: [orderId], references: [id])
+  refunds Refund[]
+
+  @@unique([provider, providerPaymentId])
+  @@index([orderId])
+  @@index([status])
+  @@map("payments")
+}
+
+model Refund {
+  id        String @id @default(uuid()) @db.Uuid
+  paymentId String @map("payment_id") @db.Uuid
+
+  amountMinor      Int          @map("amount_minor")
+  reason           String?
+  status           RefundStatus @default(PENDING)
+  providerRefundId String?      @map("provider_refund_id")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+
+  @@index([paymentId])
+  @@map("refunds")
+}
+
+/// Bir işletmenin belirli bir dönemdeki hakedişi. Aggregate tutarlar int32'yi
+/// aşabileceği için BigInt kullanılır.
+model Payout {
+  id      String @id @default(uuid()) @db.Uuid
+  storeId String @map("store_id") @db.Uuid
+
+  periodStart DateTime @map("period_start") @db.Timestamptz(3)
+  periodEnd   DateTime @map("period_end") @db.Timestamptz(3)
+
+  grossMinor      BigInt @map("gross_minor")
+  commissionMinor BigInt @map("commission_minor")
+  refundMinor     BigInt @default(0) @map("refund_minor")
+  netMinor        BigInt @map("net_minor")
+  currency        String @default("TRY")
+
+  status    PayoutStatus @default(PENDING)
+  paidAt    DateTime?    @map("paid_at") @db.Timestamptz(3)
+  reference String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  store  Store   @relation(fields: [storeId], references: [id])
+  orders Order[]
+
+  @@unique([storeId, periodStart, periodEnd])
+  @@index([status])
+  @@map("payouts")
+}
+
+// ---------------------------------------------------------------------------
+// Değerlendirme, bildirim, destek
+// ---------------------------------------------------------------------------
+
+model Rating {
+  id      String @id @default(uuid()) @db.Uuid
+  orderId String @unique @map("order_id") @db.Uuid
+  userId  String @map("user_id") @db.Uuid
+  storeId String @map("store_id") @db.Uuid
+
+  overall           Int
+  foodQuality       Int?     @map("food_quality")
+  pickupExperience  Int?     @map("pickup_experience")
+  tags              String[] @default([])
+  comment           String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([userId])
+  @@map("ratings")
+}
+
+model Notification {
+  id     String           @id @default(uuid()) @db.Uuid
+  userId String           @map("user_id") @db.Uuid
+  type   NotificationType
+
+  title String
+  body  String
+  /// Derin bağlantı için ek veri: { "orderId": "...", "bagId": "..." }
+  data  Json?
+
+  readAt    DateTime? @map("read_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+model SupportTicket {
+  id      String  @id @default(uuid()) @db.Uuid
+  /// Giriş yapmamış kullanıcı da talep açabilir.
+  userId  String? @map("user_id") @db.Uuid
+  orderId String? @map("order_id") @db.Uuid
+
+  name     String
+  email    String          @db.Citext
+  category SupportCategory @default(OTHER)
+  subject  String
+  message  String
+
+  status SupportTicketStatus @default(OPEN)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([userId])
+  @@map("support_tickets")
+}
+
+/// Web'deki "İşletmeni ekle" formundan gelen ön kayıtlar.
+model PartnerApplication {
+  id           String @id @default(uuid()) @db.Uuid
+  businessName String @map("business_name")
+  businessType String @map("business_type")
+  contactName  String @map("contact_name")
+  phone        String
+  email        String @db.Citext
+  city         String
+  district     String
+  note         String?
+
+  status PartnerApplicationStatus @default(NEW)
+  /// Başvuru onaylandığında oluşturulan işletme.
+  createdStoreId String? @map("created_store_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([status, createdAt])
+  @@map("partner_applications")
+}
+
+// ---------------------------------------------------------------------------
+// Altyapı tabloları
+// ---------------------------------------------------------------------------
+
+/// Idempotency kayıtları. Para hareketi içeren uçlarda aynı anahtarla gelen
+/// ikinci istek, ilk isteğin yanıtını döndürür. Redis yerine veritabanında
+/// tutulur: bellek baskısı altında kaybolmamalıdır.
+model IdempotencyKey {
+  id     String  @id @default(uuid()) @db.Uuid
+  key    String
+  userId String? @map("user_id") @db.Uuid
+  endpoint String
+
+  /// İstek gövdesinin hash'i. Aynı anahtar farklı gövdeyle gelirse çakışma
+  /// hatası döndürülür — sessizce yanlış yanıt verilmez.
+  requestHash String @map("request_hash")
+
+  responseStatus Int? @map("response_status")
+  responseBody   Json? @map("response_body")
+  /// İşlem tamamlanana kadar null; eşzamanlı ikinci istek bunu görüp bekler.
+  completedAt    DateTime? @map("completed_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+
+  @@unique([key, endpoint, userId])
+  @@index([expiresAt])
+  @@map("idempotency_keys")
+}
+
+/// Güvenilir olay yayını. Sipariş transaction'ı içinde yazılır, ayrı bir
+/// süreç Redis pub/sub'a taşır. Böylece "veritabanı yazıldı ama olay
+/// yayınlanmadı" durumu oluşmaz.
+model OutboxEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  type        String
+  payload     Json
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  attempts    Int       @default(0)
+  lastError   String?   @map("last_error")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([publishedAt, createdAt])
+  @@map("outbox_events")
+}
+
+model AuditLog {
+  id       String  @id @default(uuid()) @db.Uuid
+  actorId  String? @map("actor_id") @db.Uuid
+  action   String
+  entity   String
+  entityId String? @map("entity_id")
+  meta     Json?
+  ipAddress String? @map("ip_address")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@index([actorId, createdAt])
+  @@map("audit_logs")
+}

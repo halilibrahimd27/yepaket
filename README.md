@@ -3,7 +3,7 @@
 İşletmelerde gün sonunda kalan yenilebilir ürünleri uygun fiyatlı sürpriz
 paketlere dönüştürerek gıda israfını azaltan pazaryeri.
 
-Bu depo (`refood`) ürünün tamamını barındıran monorepo'dur: backend API, web
+Bu depo ürünün tamamını barındıran monorepo'dur: backend API, web
 istemcisi, mobil istemci, ortak sözleşme dokümanları ve yerel geliştirme
 altyapısı tek yerde versiyonlanır.
 

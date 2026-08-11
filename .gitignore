@@ -75,3 +75,6 @@ infra/data/
 *.sqlite3
 /work/
 /outputs/
+
+# Prisma tarafından üretilen istemci (npm ci sonrası otomatik üretilir)
+backend/src/generated/

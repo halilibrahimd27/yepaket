@@ -2,15 +2,20 @@ name: yepaket
 
 services:
   postgres:
-    image: postgis/postgis:17-3.5
+    # Resmi postgis/postgis imajının arm64 yapısı yok; imresamu/postgis PostGIS
+    # topluluğunun çok mimarili (amd64 + arm64) yapısıdır ve Apple Silicon'da da
+    # çalışır. Sürüm sabitlemek isterseniz .env içinden POSTGRES_IMAGE ile
+    # değiştirin.
+    image: ${POSTGRES_IMAGE:-imresamu/postgis:17-3.5}
     container_name: yepaket-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-yepaket}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-yepaket_dev}
       POSTGRES_DB: ${POSTGRES_DB:-yepaket}
-      # Türkçe metin sıralaması ve karşılaştırması için.
-      LANG: tr_TR.utf8
+      # Türkçe sıralama için ICU kullanılır (ı/İ/ş/ğ doğru sıralanır).
+      # glibc tr_TR.utf8 imajda üretilmediği için taban locale C.UTF-8 kalır.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale-provider=icu --icu-locale=tr-TR --locale=C.UTF-8"
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
