@@ -133,6 +133,13 @@ describe('Auth (e2e)', () => {
     expect(fields.join(' ')).toMatch(/rakam/i);
   });
 
+  it('sağlık uçları kimlik doğrulama istemez', async () => {
+    // Yük dengeleyici ve orkestratör bu uçlara jetonsuz erişir; global
+    // guard eklendiğinde kazara kilitlenmesi üretimde servisi düşürür.
+    await api().get('/health/live').expect(200);
+    await api().get('/health/ready').expect(200);
+  });
+
   it('tanımsız alan gönderilirse istek reddedilir', async () => {
     const response = await api()
       .post('/v1/auth/register')

@@ -2,6 +2,7 @@ import { Controller, Get } from '@nestjs/common';
 import { HealthCheck, HealthCheckService, HealthIndicatorService } from '@nestjs/terminus';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
+import { Public } from '../common/decorators/auth.decorators';
 import { SkipEnvelope } from '../common/interceptors/response-envelope.interceptor';
 import { PrismaService } from '../database/prisma.service';
 import { RedisService } from '../redis/redis.service';
@@ -13,6 +14,10 @@ import { RedisService } from '../redis/redis.service';
 @ApiTags('health')
 @Controller('health')
 @SkipThrottle()
+// Yük dengeleyici ve konteyner orkestratörü kimlik doğrulayamaz; sağlık
+// uçları kimlik gerektirmemelidir. Guard varsayılan olarak kapalı olduğu
+// için bu muafiyet açıkça belirtilir.
+@Public()
 export class HealthController {
   constructor(
     private readonly health: HealthCheckService,
