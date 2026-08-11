@@ -35,6 +35,23 @@ export const envSchema = z
     JWT_REFRESH_SECRET: z.string().min(32),
     REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(60),
 
+    /**
+     * Sosyal giriş istemci kimlikleri (virgülle ayrılmış).
+     *
+     * Her platformun ayrı istemci kimliği olduğu için liste tutulur; gelen
+     * jetonun `aud` alanı bu listede olmalıdır. Boş bırakılan sağlayıcı
+     * devre dışıdır — yapılandırılmamış bir sağlayıcıya gelen istek
+     * doğrulanmadan kabul edilmez.
+     */
+    GOOGLE_CLIENT_IDS: z.string().default(''),
+    APPLE_CLIENT_IDS: z.string().default(''),
+    MICROSOFT_CLIENT_IDS: z.string().default(''),
+    /**
+     * Geliştirmede gerçek sağlayıcı jetonu üretmeden sosyal girişi denemeye
+     * izin verir. Üretimde açılamaz (aşağıdaki kontrol engeller).
+     */
+    OAUTH_ALLOW_MOCK: booleanFromString.default(false),
+
     /** Ödeme onayı gelmezse rezervasyonun geri verileceği süre. */
     ORDER_RESERVATION_TTL_MINUTES: z.coerce.number().int().positive().default(15),
     /** Teslim onayı nonce'ının ömrü. */
@@ -92,6 +109,14 @@ export const envSchema = z
           code: 'custom',
           path: ['CORS_ORIGINS'],
           message: 'Üretimde CORS_ORIGINS "*" olamaz; alan adlarını açıkça listeleyin.',
+        });
+      }
+      if (env.OAUTH_ALLOW_MOCK) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['OAUTH_ALLOW_MOCK'],
+          message:
+            'Üretimde sahte sosyal giriş açılamaz: doğrulanmamış jetonla hesap ele geçirilebilir.',
         });
       }
     }

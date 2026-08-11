@@ -7,11 +7,14 @@ import { LoggerModule } from 'nestjs-pino';
 import { randomUUID } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { RolesGuard } from './common/guards/roles.guard';
 import { ResponseEnvelopeInterceptor } from './common/interceptors/response-envelope.interceptor';
 import { validateEnv, type Env } from './config/env';
 import { PrismaModule } from './database/prisma.module';
 import { HealthModule } from './health/health.module';
 import { RedisModule } from './redis/redis.module';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
@@ -84,11 +87,15 @@ import { RedisModule } from './redis/redis.module';
     PrismaModule,
     RedisModule,
     HealthModule,
+    AuthModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
     { provide: APP_INTERCEPTOR, useClass: ResponseEnvelopeInterceptor },
+    // Guard sırası önemlidir: önce hız sınırı (ucuz), sonra kimlik, sonra rol.
     { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })
 export class AppModule {}

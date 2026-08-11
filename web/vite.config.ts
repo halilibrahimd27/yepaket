@@ -43,10 +43,24 @@ export default defineConfig(async () => {
   // Wrangler snapshots its log path while the Cloudflare plugin is imported.
   const { cloudflare } = await import("@cloudflare/vite-plugin");
 
+  // Konteyner veya sanal makine içinde çalışırken sunucunun yalnızca
+  // 127.0.0.1'e bağlanması dışarıdan erişimi imkânsız kılar. DEV_SERVER_HOST
+  // verildiğinde tüm arayüzleri dinler; bind mount üzerinden dosya
+  // değişikliklerini yakalamak için de yoklama gerekir (macOS'ta FSEvents
+  // konteynere ulaşmaz).
+  const devHost = process.env.DEV_SERVER_HOST;
+  const needsPolling = isCodexSeatbeltSandbox || Boolean(devHost);
+
   return {
-    server: isCodexSeatbeltSandbox
-      ? { watch: { useFsEvents: false, usePolling: true } }
-      : undefined,
+    server: {
+      // allowedHosts: Vite, DNS yeniden bağlama saldırısına karşı beklenmeyen
+      // Host başlıklarını reddeder. Konteynerden erişimde istek
+      // `host.docker.internal` gibi bir adla gelir ve 403 alır. Yalnızca
+      // DEV_SERVER_HOST verildiğinde (bilinçli olarak dışarı açıldığında)
+      // gevşetilir; varsayılan geliştirme akışı korumalı kalır.
+      ...(devHost ? { host: devHost, strictPort: true, allowedHosts: true } : {}),
+      ...(needsPolling ? { watch: { useFsEvents: false, usePolling: true } } : {}),
+    },
     plugins: [
       vinext(),
       sites(),

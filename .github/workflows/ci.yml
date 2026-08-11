@@ -70,10 +70,22 @@ jobs:
         working-directory: backend
         run: npm run db:migrate:deploy
 
-      - name: Test
+      - name: Birim testleri
         if: steps.exists.outputs.found == 'true'
         working-directory: backend
         run: npm test
+
+      - name: Uçtan uca testler
+        if: steps.exists.outputs.found == 'true'
+        working-directory: backend
+        run: npm run test:e2e
+        env:
+          NODE_ENV: test
+          LOG_LEVEL: error
+          JWT_ACCESS_SECRET: ci_icin_en_az_otuz_iki_karakterlik_gizli_anahtar
+          JWT_REFRESH_SECRET: ci_icin_farkli_ve_en_az_otuz_iki_karakterlik_anahtar
+          # Hız sınırı testleri bloklamasın; sınırın kendisi ayrıca test edilir.
+          RATE_LIMIT_PER_MINUTE: 1000
 
       - name: Build
         if: steps.exists.outputs.found == 'true'
