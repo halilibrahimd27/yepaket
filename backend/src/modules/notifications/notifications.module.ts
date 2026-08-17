@@ -5,6 +5,7 @@ import { SupportService } from '../support/support.service';
 import { OutboxPublisher } from '../realtime/outbox.publisher';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { NotificationsService } from './notifications.service';
+import { PushService } from './push.service';
 import { NotificationsTasks } from './notifications.tasks';
 import {
   DevicesController,
@@ -29,6 +30,7 @@ import {
   ],
   providers: [
     NotificationsService,
+    PushService,
     NotificationsTasks,
     ImpactService,
     SupportService,
@@ -36,6 +38,6 @@ import {
     OutboxPublisher,
     RealtimeGateway,
   ],
-  exports: [NotificationsService, MailService, ImpactService],
+  exports: [NotificationsService, MailService, ImpactService, PushService],
 })
 export class NotificationsModule {}

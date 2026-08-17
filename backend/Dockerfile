@@ -7,16 +7,24 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Bağımlılık katmanı önce kopyalanır: kaynak değiştiğinde npm ci tekrar
-# çalışmasın diye.
+# Bağımlılık ve yapılandırma katmanı önce: kaynak değiştiğinde npm ci
+# tekrar çalışmasın.
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
 COPY prisma.config.ts ./
+# tsconfig, npm ci'den ÖNCE kopyalanmalı. postinstall içindeki
+# `prisma generate` modül biçimini tsconfig'ten okur; dosya yoksa ESM
+# varsayıp `import.meta.url` üretir, tsc bunu CommonJS'e derleyince Node
+# çalışma zamanında "exports is not defined" hatası verir.
+COPY tsconfig*.json nest-cli.json ./
 
-# postinstall `prisma generate` çalıştırır; şema yukarıda kopyalandı.
+# postinstall `prisma generate` çalıştırır. Prisma 7 yapılandırmayı
+# prisma.config.ts'ten okur ve `env('DATABASE_URL')` derleme ortamında
+# tanımsızdır; istemci üretimi veritabanına bağlanmadığı için sahte bir
+# değer yeterlidir.
+ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
 RUN npm ci
 
-COPY tsconfig*.json nest-cli.json ./
 COPY src ./src
 
 RUN npm run build \
@@ -36,7 +44,8 @@ RUN apk add --no-cache dumb-init \
 WORKDIR /app
 
 ENV NODE_ENV=production \
-    PORT=8080
+    PORT=8080 \
+    MEDIA_ROOT=/app/media
 
 COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
@@ -45,6 +54,11 @@ COPY --from=builder --chown=nodejs:nodejs /app/package.json ./package.json
 # `npm run db:migrate:deploy` aynı sürümü uygular.
 COPY --from=builder --chown=nodejs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nodejs:nodejs /app/prisma.config.ts ./prisma.config.ts
+
+# Yüklenen görseller için yazılabilir dizin. Üretimde kalıcı bir birim
+# (volume) bağlanmalı, aksi hâlde konteyner yenilendiğinde görseller kaybolur.
+RUN mkdir -p /app/media && chown -R nodejs:nodejs /app/media
+VOLUME ["/app/media"]
 
 USER nodejs
 

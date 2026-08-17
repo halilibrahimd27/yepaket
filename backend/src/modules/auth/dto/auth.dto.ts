@@ -4,6 +4,7 @@ import {
   IsEnum,
   IsIn,
   IsOptional,
+  IsDefined,
   IsString,
   Length,
   Matches,
@@ -71,6 +72,10 @@ export class RegisterDto {
   phone?: string;
 
   @ApiProperty({ type: DeviceInfoDto })
+  // @ValidateNested tek başına eksik alanı yakalamaz: alan yoksa doğrulama
+  // atlanır ve servis katmanı null referansla patlar. @IsDefined() bunu
+  // doğrulama hatasına çevirir.
+  @IsDefined({ message: 'Cihaz bilgisi zorunludur.' })
   @ValidateNested()
   @Type(() => DeviceInfoDto)
   device!: DeviceInfoDto;
@@ -88,6 +93,10 @@ export class LoginDto {
   password!: string;
 
   @ApiProperty({ type: DeviceInfoDto })
+  // @ValidateNested tek başına eksik alanı yakalamaz: alan yoksa doğrulama
+  // atlanır ve servis katmanı null referansla patlar. @IsDefined() bunu
+  // doğrulama hatasına çevirir.
+  @IsDefined({ message: 'Cihaz bilgisi zorunludur.' })
   @ValidateNested()
   @Type(() => DeviceInfoDto)
   device!: DeviceInfoDto;
@@ -108,6 +117,10 @@ export class OAuthLoginDto {
   name?: string;
 
   @ApiProperty({ type: DeviceInfoDto })
+  // @ValidateNested tek başına eksik alanı yakalamaz: alan yoksa doğrulama
+  // atlanır ve servis katmanı null referansla patlar. @IsDefined() bunu
+  // doğrulama hatasına çevirir.
+  @IsDefined({ message: 'Cihaz bilgisi zorunludur.' })
   @ValidateNested()
   @Type(() => DeviceInfoDto)
   device!: DeviceInfoDto;
@@ -120,6 +133,10 @@ export class RefreshDto {
   refreshToken!: string;
 
   @ApiProperty({ type: DeviceInfoDto })
+  // @ValidateNested tek başına eksik alanı yakalamaz: alan yoksa doğrulama
+  // atlanır ve servis katmanı null referansla patlar. @IsDefined() bunu
+  // doğrulama hatasına çevirir.
+  @IsDefined({ message: 'Cihaz bilgisi zorunludur.' })
   @ValidateNested()
   @Type(() => DeviceInfoDto)
   device!: DeviceInfoDto;

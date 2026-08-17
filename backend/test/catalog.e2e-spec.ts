@@ -28,7 +28,36 @@ describe('Katalog (e2e)', () => {
     prisma = app.get(PrismaService);
   });
 
+  /**
+   * Testler seed verisinin tazeliğine bağlı olmamalı: seed'deki paketler
+   * zamanla süresi dolmuş duruma geçer ve testler bir gün sonra kırılır.
+   * Bu yüzden mesafe ve arama testleri kendi paketlerini kurar.
+   */
+  const fixtureBagIds: string[] = [];
+
+  async function makeBagAt(storeSlug: string, title: string): Promise<string> {
+    const store = await prisma.store.findFirstOrThrow({ where: { slug: storeSlug } });
+    const bag = await prisma.bag.create({
+      data: {
+        storeId: store.id,
+        title,
+        category: 'BAKERY',
+        imageUrls: [],
+        originalValueMinor: 40_000,
+        salePriceMinor: 12_000,
+        totalQuantity: 3,
+        availableQuantity: 3,
+        pickupStartsAt: new Date(Date.now() + 3 * 3_600_000),
+        pickupEndsAt: new Date(Date.now() + 4 * 3_600_000),
+        status: 'PUBLISHED',
+      },
+    });
+    fixtureBagIds.push(bag.id);
+    return bag.id;
+  }
+
   afterAll(async () => {
+    await prisma.bag.deleteMany({ where: { id: { in: fixtureBagIds } } });
     await app.close();
   });
 
@@ -50,6 +79,11 @@ describe('Katalog (e2e)', () => {
   });
 
   it('yarıçap dışındaki işletmeleri elemeye alır', async () => {
+    // Yakın (Kadıköy) ve uzak (Bakırköy) birer paket kur; sonuç seed
+    // verisinin o anki durumundan bağımsız olsun.
+    await makeBagAt('moda-firini', 'Yakın Mesafe Testi');
+    await makeBagAt('mimoza-pastanesi', 'Uzak Mesafe Testi');
+
     const wide = await api()
       .get('/v1/bags/nearby')
       .query({ ...KADIKOY, radiusKm: 30 })
@@ -85,11 +119,14 @@ describe('Katalog (e2e)', () => {
   });
 
   it('yazım hatasına toleranslı arama yapar (trigram)', async () => {
+    await makeBagAt('mimoza-pastanesi', 'Trigram Arama Testi');
+
+    // "mimoz" tam kelime değil; eşleşme trigram benzerliğiyle gelir.
     const response = await api().get('/v1/bags/nearby').query({ q: 'mimoz' }).expect(200);
     const items = response.body.data as { store: { name: string } }[];
 
     expect(items.length).toBeGreaterThan(0);
-    expect(items[0].store.name).toContain('Mimoza');
+    expect(items.every((item) => item.store.name.includes('Mimoza'))).toBe(true);
   });
 
   it('fiyata göre artan sıralar ve indirim yüzdesini hesaplar', async () => {

@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
+import { resolve } from 'node:path';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { configureApp } from './bootstrap';
@@ -11,6 +12,9 @@ import type { Env } from './config/env';
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
+    // Webhook imzası ham gövde üzerinden hesaplanır; JSON yeniden
+    // serileştirilirse boşluk/sıralama farkı imzayı bozar.
+    rawBody: true,
   });
 
   const config = app.get(ConfigService<Env, true>);
@@ -48,6 +52,19 @@ async function bootstrap(): Promise<void> {
     ],
     exposedHeaders: ['X-Request-Id'],
     maxAge: 86_400,
+  });
+
+  // Yüklenen görseller statik olarak servis edilir. Üretimde bu işi bir
+  // CDN/nesne deposu üstlenmeli; o zaman bu satır kaldırılır.
+  app.useStaticAssets(resolve(process.cwd(), config.get('MEDIA_ROOT', { infer: true })), {
+    prefix: '/media/',
+    maxAge: '30d',
+    immutable: true,
+    // Yüklenen içerik hiçbir koşulda çalıştırılabilir olmamalı.
+    setHeaders: (res: { setHeader: (name: string, value: string) => void }) => {
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'");
+    },
   });
 
   configureApp(app);

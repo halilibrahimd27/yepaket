@@ -17,7 +17,7 @@ import { CurrentUser, Public } from '../../common/decorators/auth.decorators';
 import { SkipEnvelope } from '../../common/interceptors/response-envelope.interceptor';
 import { IdempotencyService } from './idempotency.service';
 import { OrdersService } from './orders.service';
-import { CancelOrderDto, ConfirmPickupDto, CreateOrderDto } from './dto/orders.dto';
+import { CancelOrderDto, ConfirmPickupDto, CreateOrderDto, RateOrderDto } from './dto/orders.dto';
 import type { OrderStatus } from '../../generated/prisma/client';
 
 @ApiTags('orders')
@@ -138,6 +138,23 @@ export class OrdersController {
   })
   sharePickup(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('id') userId: string) {
     return this.orders.sharePickup(id, userId);
+  }
+
+  @Post(':id/rating')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Siparişi değerlendirir',
+    description:
+      'Yalnızca teslim alınmış sipariş puanlanabilir ve her sipariş bir kez ' +
+      'değerlendirilir. Mağaza ortalaması aynı transaction içinde güncellenir.',
+  })
+  rateOrder(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RateOrderDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.orders.rateOrder(id, userId, dto);
   }
 
   /**

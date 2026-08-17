@@ -81,6 +81,15 @@ export const envSchema = z
      * saldırı yüzeyidir. Açmak isteyen bilinçli olarak `true` verir.
      */
     SWAGGER_ENABLED: booleanFromString.optional(),
+    /**
+     * Firebase servis hesabı JSON'u (tek satır). Verilmezse push gönderimi
+     * devre dışı kalır; bildirimler yalnızca uygulama içinde görünür.
+     */
+    FCM_SERVICE_ACCOUNT_JSON: z.string().optional(),
+
+    /** Yüklenen görsellerin saklandığı dizin (S3'e geçilene kadar yerel). */
+    MEDIA_ROOT: z.string().default('./media'),
+
     /** Dakika başına IP başına istek üst sınırı. */
     RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(120),
   })

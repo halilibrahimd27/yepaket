@@ -86,6 +86,27 @@ export class MailService implements OnModuleInit {
     );
   }
 
+  async sendPartnerApplicationApproved(
+    to: string,
+    businessName: string,
+    ownerAssigned: boolean,
+  ): Promise<void> {
+    await this.send(
+      to,
+      'İşletmeniz onaylandı',
+      this.layout(
+        `${businessName} yayında!`,
+        `<p style="line-height:1.6">Başvurunuz onaylandı ve işletmeniz YePaket'te
+         yayına alındı.</p>
+         <p style="line-height:1.6">${
+           ownerAssigned
+             ? 'MyStore paneline mevcut hesabınızla giriş yaparak ilk paketinizi oluşturabilirsiniz.'
+             : 'Panele erişim için önce bu e-posta adresiyle hesap oluşturmanız gerekiyor; ardından ekibimiz yetkilendirmeyi tamamlayacak.'
+         }</p>`,
+      ),
+    );
+  }
+
   async sendOrderConfirmation(
     to: string,
     order: { orderNo: string; storeName: string; pickupLabel: string; pickupCode: string },

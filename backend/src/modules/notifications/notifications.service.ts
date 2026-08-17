@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { AppError } from '../../common/errors/app-error';
 import { Prisma, type NotificationType } from '../../generated/prisma/client';
+import { PushService } from './push.service';
 
 export interface NotificationView {
   id: string;
@@ -24,7 +25,10 @@ export interface NotificationView {
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly push: PushService,
+  ) {}
 
   private present(notification: {
     id: string;
@@ -115,6 +119,24 @@ export class NotificationsService {
     await this.prisma.notification.create({
       data: { userId, type, title, body, data: data ?? {} },
     });
+
+    // Kalıcı kayıt ile push aynı noktadan gider; biri yazılıp diğeri
+    // unutulamaz. Push başarısız olsa da bildirim uygulama içinde durur.
+    await this.push.sendToUser(userId, {
+      title,
+      body,
+      data: this.toStringMap(data),
+    });
+  }
+
+  /** FCM `data` alanı yalnızca dizgi değer kabul eder. */
+  private toStringMap(data?: Prisma.InputJsonValue): Record<string, string> {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
+    return Object.fromEntries(
+      Object.entries(data as Record<string, unknown>)
+        .filter(([, value]) => value !== null && value !== undefined)
+        .map(([key, value]) => [key, String(value)]),
+    );
   }
 
   /** Sipariş durumu değiştiğinde kullanıcıyı bilgilendirir. */
@@ -198,6 +220,15 @@ export class NotificationsService {
         data: { storeId, bagId, deepLink: `yepaket://stores/${storeId}` },
       })),
     });
+
+    await this.push.sendToUsers(
+      targets.map((favorite) => favorite.userId),
+      {
+        title: `${store.name} yeniden hazır!`,
+        body: 'Favorindeki işletmede yeni sürpriz paket satışta.',
+        data: { storeId, deepLink: `yepaket://stores/${storeId}` },
+      },
+    );
 
     this.logger.log(`${targets.length} kullanıcıya paket bildirimi oluşturuldu (${store.name})`);
   }

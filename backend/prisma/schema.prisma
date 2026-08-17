@@ -283,6 +283,28 @@ model Store {
   /// Platform komisyonu, baz puan (1/100 %). 1200 = %12.
   commissionRateBps Int @default(1200) @map("commission_rate_bps")
 
+  // -------------------------------------------------------------------------
+  // Pazaryeri / hakediş bilgileri
+  //
+  // İşletmeye para aktarabilmek için yasal kimlik ve banka bilgisi zorunlu.
+  // Ödeme sağlayıcısında "alt üye işyeri" (sub-merchant) açılırken kullanılır.
+  // Bu alanlar doldurulmadan hakediş üretilemez.
+  // -------------------------------------------------------------------------
+
+  /// Ticari unvan (fatura ve sözleşmelerde geçen tam yasal ad).
+  legalName   String? @map("legal_name")
+  taxNumber   String? @map("tax_number")
+  taxOffice   String? @map("tax_office")
+  mersisNo    String? @map("mersis_no")
+  /// IBAN düz metin saklanır ama yalnızca yönetici ve mağaza sahibi görebilir;
+  /// listeleme uçlarında asla dönmez.
+  iban        String?
+  ibanHolder  String? @map("iban_holder")
+  /// Ödeme sağlayıcısındaki alt üye işyeri kimliği.
+  submerchantKey String? @map("submerchant_key")
+  /// Hakediş bilgileri eksiksiz mi — Payout üretimi bunu kontrol eder.
+  payoutReady Boolean @default(false) @map("payout_ready")
+
   /// Gösterim amaçlı çalışma saatleri (yerel saat, "HH:mm").
   openingTime String? @map("opening_time")
   closingTime String? @map("closing_time")

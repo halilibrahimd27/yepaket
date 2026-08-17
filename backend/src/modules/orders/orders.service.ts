@@ -704,6 +704,89 @@ export class OrdersService {
   }
 
   /**
+   * Sipariş değerlendirmesi.
+   *
+   * Yalnızca teslim alınmış sipariş puanlanabilir: teslim almadan puan
+   * vermek, hiç yaşanmamış bir deneyimi değerlendirmek olurdu. Her sipariş
+   * bir kez puanlanır ve mağaza ortalaması aynı transaction'da güncellenir.
+   */
+  async rateOrder(
+    orderId: string,
+    userId: string,
+    input: {
+      overall: number;
+      foodQuality?: number;
+      pickupExperience?: number;
+      tags?: string[];
+      comment?: string;
+    },
+  ) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { rating: true },
+    });
+
+    if (!order || order.userId !== userId) {
+      throw AppError.notFound('Sipariş', ErrorCode.ORDER_NOT_FOUND);
+    }
+
+    if (order.status !== 'COLLECTED') {
+      throw AppError.unprocessable(
+        ErrorCode.ORDER_NOT_READY_FOR_PICKUP,
+        'Yalnızca teslim alınmış sipariş değerlendirilebilir.',
+      );
+    }
+
+    if (order.rating) {
+      throw AppError.conflict(
+        ErrorCode.VALIDATION_FAILED,
+        'Bu sipariş zaten değerlendirilmiş.',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const rating = await tx.rating.create({
+        data: {
+          orderId,
+          userId,
+          storeId: order.storeId,
+          overall: input.overall,
+          foodQuality: input.foodQuality,
+          pickupExperience: input.pickupExperience,
+          tags: input.tags ?? [],
+          comment: input.comment,
+        },
+      });
+
+      // Ortalamayı yeniden hesaplamak yerine artımlı güncellemek, puan
+      // sayısı büyüdüğünde tüm satırları taramaktan kaçınır.
+      const store = await tx.store.findUniqueOrThrow({
+        where: { id: order.storeId },
+        select: { ratingAverage: true, ratingCount: true },
+      });
+
+      const nextCount = store.ratingCount + 1;
+      const nextAverage =
+        (store.ratingAverage * store.ratingCount + input.overall) / nextCount;
+
+      await tx.store.update({
+        where: { id: order.storeId },
+        data: {
+          ratingCount: nextCount,
+          // Kısıt 0-5 arası ister; kayan nokta birikimi sınırı aşmasın.
+          ratingAverage: Math.min(5, Math.max(0, Number(nextAverage.toFixed(2)))),
+        },
+      });
+
+      return {
+        id: rating.id,
+        overall: rating.overall,
+        createdAt: rating.createdAt,
+      };
+    });
+  }
+
+  /**
    * "Arkadaşıma teslim aldır" bağlantısı.
    * Ayrı ve süreli bir jeton üretir; asıl pickup nonce'ı paylaşılmaz.
    */

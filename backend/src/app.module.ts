@@ -18,6 +18,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OrdersModule } from './modules/orders/orders.module';
+import { PartnerModule } from './modules/partner/partner.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 
 @Module({
@@ -96,6 +97,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
     PaymentsModule,
     OrdersModule,
     NotificationsModule,
+    PartnerModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
