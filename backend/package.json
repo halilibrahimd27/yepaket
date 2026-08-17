@@ -28,7 +28,8 @@
     "db:reset": "prisma migrate reset --force",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "openapi": "ts-node -r tsconfig-paths/register scripts/generate-openapi.ts"
   },
   "prisma": {
     "seed": "ts-node --project tsconfig.json prisma/seed.ts"

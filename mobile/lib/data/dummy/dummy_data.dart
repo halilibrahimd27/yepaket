@@ -7,7 +7,13 @@ import '../models/models.dart';
 abstract final class DummyData {
   static DateTime _at(int hour, int minute, {int dayOffset = 0}) {
     final now = DateTime.now();
-    var moment = DateTime(now.year, now.month, now.day + dayOffset, hour, minute);
+    var moment = DateTime(
+      now.year,
+      now.month,
+      now.day + dayOffset,
+      hour,
+      minute,
+    );
     if (dayOffset == 0 && moment.isBefore(now)) {
       moment = moment.add(const Duration(days: 1));
     }
@@ -70,7 +76,8 @@ abstract final class DummyData {
       availableQuantity: 2,
       description:
           'Kapanışa doğru tezgahta kalan günlük kruvasan, sandviç ve tatlı seçenekleri.',
-      address: 'Kemankeş Karamustafapaşa Mah. Mumhane Cad. No:7, Beyoğlu/İstanbul',
+      address:
+          'Kemankeş Karamustafapaşa Mah. Mumhane Cad. No:7, Beyoğlu/İstanbul',
       isFavorite: true,
     ),
     SurpriseBag(
@@ -88,7 +95,8 @@ abstract final class DummyData {
       originalPriceMinor: 48000,
       priceMinor: 14900,
       availableQuantity: 4,
-      description: 'Günlük üretimden kalan kek, kurabiye ve porsiyon tatlılardan seçki.',
+      description:
+          'Günlük üretimden kalan kek, kurabiye ve porsiyon tatlılardan seçki.',
       address: 'Zeytinlik Mah. Yakut Sok. No:12, Bakırköy/İstanbul',
     ),
   ];

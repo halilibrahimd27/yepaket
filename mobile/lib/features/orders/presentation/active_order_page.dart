@@ -294,7 +294,9 @@ class _ActiveOrderPageState extends State<ActiveOrderPage> {
                 label: const Text('Siparişle ilgili yardım al'),
               ),
               TextButton(
-                onPressed: completing ? null : () => _cancelOrder(context, order),
+                onPressed: completing
+                    ? null
+                    : () => _cancelOrder(context, order),
                 child: const Text(
                   'Siparişi iptal et',
                   style: TextStyle(color: Colors.redAccent),
@@ -310,9 +312,7 @@ class _ActiveOrderPageState extends State<ActiveOrderPage> {
   static void _share(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text(
-          'Tek kullanımlık teslim bağlantısı hazırlandı.',
-        ),
+        content: Text('Tek kullanımlık teslim bağlantısı hazırlandı.'),
       ),
     );
   }
@@ -344,7 +344,10 @@ class _ActiveOrderPageState extends State<ActiveOrderPage> {
 
     switch (result) {
       case Success():
-        showInfoSnack(context, 'Siparişin iptal edildi. İade süreci başlatıldı.');
+        showInfoSnack(
+          context,
+          'Siparişin iptal edildi. İade süreci başlatıldı.',
+        );
         context.go('/orders');
       case Failure(message: final message):
         showErrorSnack(context, message);

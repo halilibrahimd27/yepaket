@@ -245,7 +245,10 @@ class _ActiveOrderBanner extends StatelessWidget {
                     // Sabit metin yerine gerçek sipariş bilgisi (O1).
                     Text(
                       '${order.bag.store} · ${order.pickupLabel}',
-                      style: const TextStyle(fontSize: 11, color: AppColors.forest),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.forest,
+                      ),
                     ),
                   ],
                 ),

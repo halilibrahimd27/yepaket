@@ -244,7 +244,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       padding: EdgeInsets.symmetric(vertical: 15),
                       child: Divider(),
                     ),
-                    _PriceRow(label: 'Toplam', value: Formats.money(totalMinor), strong: true),
+                    _PriceRow(
+                      label: 'Toplam',
+                      value: Formats.money(totalMinor),
+                      strong: true,
+                    ),
                   ],
                 ),
               ),

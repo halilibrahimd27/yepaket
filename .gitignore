@@ -12,10 +12,12 @@ Thumbs.db
 !.vscode/settings.recommended.json
 
 # Ortam değişkenleri — .env.example dosyaları versiyonlanır, gerçekleri asla.
+# `.env.*` deseni `.env.prod` ve `.env.local` gibi tüm türevleri kapsar.
 .env
 .env.*
 !.env.example
 !*.env.example
+!.env.prod.example
 
 # ---------------------------------------------------------------------------
 # Node / backend / web

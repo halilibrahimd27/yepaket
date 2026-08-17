@@ -26,7 +26,10 @@ abstract interface class AuthRepository {
   /// E-postadaki jetonla yeni şifreyi kaydeder.
   Future<void> confirmPasswordReset(String token, String newPassword);
 
-  Future<AppUser> signInWithProvider(String provider, {required String idToken});
+  Future<AppUser> signInWithProvider(
+    String provider, {
+    required String idToken,
+  });
   Future<AppUser?> currentUser();
   Future<void> signOut();
   Future<bool> get hasSession;
@@ -47,7 +50,10 @@ class DummyAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<AppUser> signInWithProvider(String provider, {required String idToken}) async {
+  Future<AppUser> signInWithProvider(
+    String provider, {
+    required String idToken,
+  }) async {
     await Future<void>.delayed(const Duration(milliseconds: 700));
     return _user = const AppUser(
       id: 'demo-user',
@@ -112,7 +118,10 @@ class RemoteAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<AppUser> signInWithProvider(String provider, {required String idToken}) async {
+  Future<AppUser> signInWithProvider(
+    String provider, {
+    required String idToken,
+  }) async {
     final response = await _client.post(
       ApiEndpoints.oauth(provider),
       data: {'idToken': idToken, 'device': await _device()},
@@ -233,7 +242,9 @@ class DummyBagRepository implements BagRepository {
     // görülmeli, aksi hâlde sıralama hatası ancak üretimde fark edilir.
     switch (sort) {
       case BagSort.distance:
-        all.sort((a, b) => (a.distanceKm ?? 1e9).compareTo(b.distanceKm ?? 1e9));
+        all.sort(
+          (a, b) => (a.distanceKm ?? 1e9).compareTo(b.distanceKm ?? 1e9),
+        );
       case BagSort.price:
         all.sort((a, b) => a.priceMinor.compareTo(b.priceMinor));
       case BagSort.rating:
@@ -334,16 +345,13 @@ class RemoteBagRepository implements BagRepository {
 
     // Favoriler işletme bazlı döner; her işletmenin yayındaki paketleri
     // düzleştirilir.
-    return data
-        .whereType<Map>()
-        .expand((entry) {
-          final bags = Map<String, dynamic>.from(entry)['bags'];
-          if (bags is! List) return const <SurpriseBag>[];
-          return bags
-              .whereType<Map>()
-              .map((bag) => _parseBag(Map<String, dynamic>.from(bag)));
-        })
-        .toList();
+    return data.whereType<Map>().expand((entry) {
+      final bags = Map<String, dynamic>.from(entry)['bags'];
+      if (bags is! List) return const <SurpriseBag>[];
+      return bags.whereType<Map>().map(
+        (bag) => _parseBag(Map<String, dynamic>.from(bag)),
+      );
+    }).toList();
   }
 }
 
@@ -364,7 +372,12 @@ abstract interface class OrderRepository {
   Future<AppOrder> confirmPickup(AppOrder order, String nonce);
   Future<AppOrder> cancel(AppOrder order, {String? reason});
   Future<List<AppOrder>> list();
-  Future<void> rate(String orderId, int overall, {List<String> tags, String? comment});
+  Future<void> rate(
+    String orderId,
+    int overall, {
+    List<String> tags,
+    String? comment,
+  });
 }
 
 class DummyOrderRepository implements OrderRepository {
@@ -593,10 +606,14 @@ SurpriseBag _parseBag(Map<String, dynamic> json) {
     // "hemen yanınızda" anlamına gelirdi.
     distanceKm: distanceMeters == null ? null : distanceMeters / 1000,
     pickupStartsAt:
-        DateTime.tryParse(pickupWindow['starts_at']?.toString() ?? '')?.toLocal() ??
+        DateTime.tryParse(
+          pickupWindow['starts_at']?.toString() ?? '',
+        )?.toLocal() ??
         DateTime.now(),
     pickupEndsAt:
-        DateTime.tryParse(pickupWindow['ends_at']?.toString() ?? '')?.toLocal() ??
+        DateTime.tryParse(
+          pickupWindow['ends_at']?.toString() ?? '',
+        )?.toLocal() ??
         DateTime.now().add(const Duration(hours: 1)),
     rating: ((rating['overall'] as num?) ?? 0).toDouble(),
     reviewCount: (rating['count'] as num?)?.toInt() ?? 0,
@@ -604,7 +621,8 @@ SurpriseBag _parseBag(Map<String, dynamic> json) {
     originalPriceMinor: _minor(_asMap(json['original_value'])['amount_minor']),
     priceMinor: _minor(_asMap(json['sale_price'])['amount_minor']),
     availableQuantity: (json['available_quantity'] as num?)?.toInt() ?? 0,
-    description: json['description'] as String? ?? 'Günlük ürünlerden sürpriz seçki.',
+    description:
+        json['description'] as String? ?? 'Günlük ürünlerden sürpriz seçki.',
     address: store['address'] as String? ?? 'Adres işletmeden alınacak.',
     isFavorite: json['is_favorite'] as bool? ?? false,
   );
@@ -623,14 +641,20 @@ AppOrder _parseOrder(Map<String, dynamic> json, {SurpriseBag? fallbackBag}) {
     totalMinor: _minor(_asMap(json['total'])['amount_minor']),
     status: _parseStatus(json['status']),
     pickupStartsAt:
-        DateTime.tryParse(pickupWindow['starts_at']?.toString() ?? '')?.toLocal() ??
+        DateTime.tryParse(
+          pickupWindow['starts_at']?.toString() ?? '',
+        )?.toLocal() ??
         DateTime.now(),
     pickupEndsAt:
-        DateTime.tryParse(pickupWindow['ends_at']?.toString() ?? '')?.toLocal() ??
+        DateTime.tryParse(
+          pickupWindow['ends_at']?.toString() ?? '',
+        )?.toLocal() ??
         DateTime.now().add(const Duration(hours: 1)),
     pickupCode: json['pickup_code'] as String? ?? '',
     paymentRedirectUrl: _asMap(json['payment'])['redirect_url'] as String?,
-    collectedAt: DateTime.tryParse(json['collected_at']?.toString() ?? '')?.toLocal(),
+    collectedAt: DateTime.tryParse(
+      json['collected_at']?.toString() ?? '',
+    )?.toLocal(),
   );
 }
 
@@ -748,8 +772,11 @@ class DummyAccountRepository implements AccountRepository {
   int _waitlist = 0;
 
   @override
-  Future<int> joinWaitlist(String feature, String email, {String? city}) async =>
-      ++_waitlist;
+  Future<int> joinWaitlist(
+    String feature,
+    String email, {
+    String? city,
+  }) async => ++_waitlist;
 
   @override
   Future<int> waitlistCount(String feature) async => _waitlist;

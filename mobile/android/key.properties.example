@@ -1,0 +1,19 @@
+# Android yayın imzalama anahtarı.
+#
+#   cp key.properties.example key.properties
+#   # değerleri doldurun
+#
+# key.properties DEPOYA GİRMEZ (.gitignore altındadır).
+#
+# Anahtar üretimi:
+#   keytool -genkey -v -keystore ~/yepaket-upload.jks \
+#     -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+#
+# ⚠️ Bu anahtar dosyasını ve şifrelerini GÜVENLİ YEDEKLEYİN.
+# Kaybedilirse uygulamanın güncellemesi bir daha yayınlanamaz; Google Play
+# yalnızca aynı anahtarla imzalanmış güncellemeleri kabul eder.
+
+storeFile=/mutlak/yol/yepaket-upload.jks
+storePassword=
+keyAlias=upload
+keyPassword=

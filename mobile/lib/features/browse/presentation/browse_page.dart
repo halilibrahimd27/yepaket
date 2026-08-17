@@ -343,7 +343,11 @@ class _LiveMapViewState extends State<_LiveMapView>
               ),
               MarkerLayer(
                 markers: [
-                  for (var index = 0; index < bags.length && index < storeLocations.length; index++)
+                  for (
+                    var index = 0;
+                    index < bags.length && index < storeLocations.length;
+                    index++
+                  )
                     Marker(
                       point: storeLocations[index],
                       width: 78,

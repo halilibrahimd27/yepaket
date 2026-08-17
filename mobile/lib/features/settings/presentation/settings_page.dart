@@ -85,8 +85,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   value: prefs.bagAvailable,
                   onChanged: user == null
                       ? null
-                      : (value) =>
-                            _update(prefs.copyWith(bagAvailable: value)),
+                      : (value) => _update(prefs.copyWith(bagAvailable: value)),
                   title: const Text(
                     'Favori paket uyarıları',
                     style: TextStyle(fontWeight: FontWeight.w800),
@@ -101,8 +100,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   value: prefs.orderUpdates,
                   onChanged: user == null
                       ? null
-                      : (value) =>
-                            _update(prefs.copyWith(orderUpdates: value)),
+                      : (value) => _update(prefs.copyWith(orderUpdates: value)),
                   title: const Text(
                     'Sipariş hatırlatmaları',
                     style: TextStyle(fontWeight: FontWeight.w800),
@@ -117,8 +115,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   value: prefs.impactDigest,
                   onChanged: user == null
                       ? null
-                      : (value) =>
-                            _update(prefs.copyWith(impactDigest: value)),
+                      : (value) => _update(prefs.copyWith(impactDigest: value)),
                   title: const Text(
                     'Etki özeti',
                     style: TextStyle(fontWeight: FontWeight.w800),

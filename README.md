@@ -7,6 +7,9 @@ Bu depo ürünün tamamını barındıran monorepo'dur: backend API, web
 istemcisi, mobil istemci, ortak sözleşme dokümanları ve yerel geliştirme
 altyapısı tek yerde versiyonlanır.
 
+**Yayına almak için:** [docs/TESLIM.md](docs/TESLIM.md) — ne teslim edildiği,
+sizden ne gerektiği ve adım adım kurulum.
+
 ## Depo yapısı
 
 ```text
@@ -14,7 +17,7 @@ backend/    NestJS + TypeScript API (PostgreSQL/PostGIS, Redis, iyzico)
 web/        Tanıtım sitesi + MyStore işletme paneli (React 19 RSC, vinext, Tailwind v4)
 mobile/     Flutter iOS/Android tüketici uygulaması
 docs/       API sözleşmesi, mimari ve yol haritası — üç istemcinin tek kaynağı
-infra/      Yerel geliştirme için Docker Compose servisleri
+infra/      Docker Compose — yerel geliştirme ve üretim yığını (TLS dâhil)
 ```
 
 ## Hızlı başlangıç
@@ -39,11 +42,32 @@ cd ../mobile && flutter pub get && flutter run
 Servis adresleri ve varsayılan portlar için [infra/README.md](infra/README.md)
 dosyasına bakın.
 
+## Üretim
+
+```bash
+cd infra
+cp .env.prod.example .env.prod    # sırları doldurun (dosyadaki yorumlar anlatır)
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+```
+
+Yığın: PostgreSQL + PostGIS · Redis · API · web · Caddy (Let's Encrypt ile
+otomatik TLS). Migration'lar açılışta uygulanır. Ayrıntı:
+[docs/TESLIM.md](docs/TESLIM.md).
+
+## Testler
+
+```bash
+cd backend && npm test && npm run test:e2e   # 20 birim + 76 uçtan uca
+cd ../web   && npm run lint && npm test
+cd ../mobile && flutter analyze && flutter test   # 21 test
+```
+
 ## Dokümanlar
 
 | Doküman | İçerik |
 | --- | --- |
-| [docs/API_CONTRACT.md](docs/API_CONTRACT.md) | Backend ↔ istemci sözleşmesi — **tek kaynak** |
+| [docs/TESLIM.md](docs/TESLIM.md) | **Teslim ve yayına alma rehberi — buradan başlayın** |
+| [docs/API_CONTRACT.md](docs/API_CONTRACT.md) | Backend ↔ istemci sözleşmesi — çalışan uygulamadan üretilir |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Sistem mimarisi, veri akışları, teknoloji kararları |
 | [docs/BUILD_PLAN.md](docs/BUILD_PLAN.md) | Yayına çıkış yol haritası ve ilerleme durumu |
 | [docs/LOCAL_DEV.md](docs/LOCAL_DEV.md) | Her şeyi yerelde çalıştırma (Docker ile, kurulum gerektirmeden) |

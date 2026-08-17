@@ -47,7 +47,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
           maxWidth: 680,
           padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
           child: AsyncContent(
-            isLoading: state.isLoadingNotifications && state.notifications.isEmpty,
+            isLoading:
+                state.isLoadingNotifications && state.notifications.isEmpty,
             error: state.notificationsError,
             isEmpty: state.notifications.isEmpty,
             emptyTitle: 'Henüz bildirim yok',
@@ -138,9 +139,7 @@ class _NotificationCard extends StatelessWidget {
                     Text(
                       notification.title,
                       style: TextStyle(
-                        fontWeight: unread
-                            ? FontWeight.w900
-                            : FontWeight.w700,
+                        fontWeight: unread ? FontWeight.w900 : FontWeight.w700,
                         color: AppColors.forest,
                       ),
                     ),
@@ -162,10 +161,7 @@ class _NotificationCard extends StatelessWidget {
                 children: [
                   Text(
                     notification.timeLabel,
-                    style: const TextStyle(
-                      fontSize: 9,
-                      color: AppColors.muted,
-                    ),
+                    style: const TextStyle(fontSize: 9, color: AppColors.muted),
                   ),
                   if (unread) ...[
                     const SizedBox(height: 6),

@@ -146,7 +146,11 @@ class SurpriseBag {
   String get pickupLabel {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final day = DateTime(pickupStartsAt.year, pickupStartsAt.month, pickupStartsAt.day);
+    final day = DateTime(
+      pickupStartsAt.year,
+      pickupStartsAt.month,
+      pickupStartsAt.day,
+    );
     final difference = day.difference(today).inDays;
 
     final prefix = switch (difference) {
@@ -163,25 +167,26 @@ class SurpriseBag {
     return now.isAfter(pickupStartsAt) && now.isBefore(pickupEndsAt);
   }
 
-  SurpriseBag copyWith({bool? isFavorite, int? availableQuantity}) => SurpriseBag(
-    id: id,
-    storeId: storeId,
-    store: store,
-    title: title,
-    category: category,
-    imageAsset: imageAsset,
-    distanceKm: distanceKm,
-    pickupStartsAt: pickupStartsAt,
-    pickupEndsAt: pickupEndsAt,
-    rating: rating,
-    reviewCount: reviewCount,
-    originalPriceMinor: originalPriceMinor,
-    priceMinor: priceMinor,
-    availableQuantity: availableQuantity ?? this.availableQuantity,
-    description: description,
-    address: address,
-    isFavorite: isFavorite ?? this.isFavorite,
-  );
+  SurpriseBag copyWith({bool? isFavorite, int? availableQuantity}) =>
+      SurpriseBag(
+        id: id,
+        storeId: storeId,
+        store: store,
+        title: title,
+        category: category,
+        imageAsset: imageAsset,
+        distanceKm: distanceKm,
+        pickupStartsAt: pickupStartsAt,
+        pickupEndsAt: pickupEndsAt,
+        rating: rating,
+        reviewCount: reviewCount,
+        originalPriceMinor: originalPriceMinor,
+        priceMinor: priceMinor,
+        availableQuantity: availableQuantity ?? this.availableQuantity,
+        description: description,
+        address: address,
+        isFavorite: isFavorite ?? this.isFavorite,
+      );
 }
 
 enum OrderStatus {
@@ -204,7 +209,8 @@ enum OrderStatus {
     OrderStatus.noShow => 'Teslim alınmadı',
   };
 
-  bool get isActive => this == OrderStatus.pickupPending || this == OrderStatus.paid;
+  bool get isActive =>
+      this == OrderStatus.pickupPending || this == OrderStatus.paid;
   bool get isFinished =>
       this == OrderStatus.collected ||
       this == OrderStatus.cancelled ||
@@ -260,7 +266,11 @@ class AppOrder {
   String get pickupLabel {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final day = DateTime(pickupStartsAt.year, pickupStartsAt.month, pickupStartsAt.day);
+    final day = DateTime(
+      pickupStartsAt.year,
+      pickupStartsAt.month,
+      pickupStartsAt.day,
+    );
     final difference = day.difference(today).inDays;
 
     final prefix = switch (difference) {
@@ -314,7 +324,8 @@ class AppUser {
     final parts = name.trim().split(RegExp(r'\s+'));
     if (parts.isEmpty || parts.first.isEmpty) return 'YP';
     if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-    return (parts.first.substring(0, 1) + parts.last.substring(0, 1)).toUpperCase();
+    return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
+        .toUpperCase();
   }
 }
 

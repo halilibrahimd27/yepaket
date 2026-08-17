@@ -1,6 +1,7 @@
 import { ArrowUpRight, BriefcaseBusiness, Camera, Mail } from "lucide-react";
 import Link from "next/link";
 import { Brand } from "./Brand";
+import { COMPANY } from "../legal-data";
 
 export function PublicFooter() {
   return (
@@ -44,15 +45,21 @@ export function PublicFooter() {
         <div>
           <h3 className="font-extrabold">Yasal</h3>
           <div className="mt-5 flex flex-col gap-3 text-sm text-white/60">
-            <Link href="/gizlilik">Gizlilik</Link>
+            <Link href="/gizlilik">Gizlilik ve KVKK</Link>
             <Link href="/kosullar">Kullanım koşulları</Link>
-            <Link href="/gizlilik#cerezler">Çerez tercihleri</Link>
+            <Link href="/kosullar#7">İptal ve iade</Link>
+            <Link href="/gizlilik#cerezler">Çerez politikası</Link>
             <a href="mailto:merhaba@yepaket.app" className="inline-flex items-center gap-1">Bize ulaş <ArrowUpRight size={14} /></a>
           </div>
         </div>
       </div>
       <div className="mx-auto flex max-w-[1240px] flex-col gap-2 pt-7 text-xs text-white/40 sm:flex-row sm:items-center sm:justify-between">
-        <span>© 2026 YePaket. Demo arayüz — veriler temsilidir.</span>
+        {/* Mesafeli satış mevzuatı, aracı hizmet sağlayıcının unvan ve
+            iletişim bilgilerinin her sayfadan erişilebilir olmasını ister. */}
+        <span>
+          © {new Date().getFullYear()} {COMPANY.legalName} · MERSİS:{" "}
+          {COMPANY.mersis}
+        </span>
         <span>İstanbul’da sevgiyle tasarlandı.</span>
       </div>
     </footer>

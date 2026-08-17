@@ -1,0 +1,3706 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/health/live": {
+      "get": {
+        "description": "Bağımlılıklara bakmaz. Kubernetes bu ucu 200 dönmediğinde konteyneri yeniden başlatır; veritabanı kesintisinde yeniden başlatmak durumu düzeltmez, bu yüzden burada kontrol edilmez.",
+        "operationId": "HealthController_live",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Süreç ayakta mı (liveness)",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "HealthController_ready",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The Health Check is successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "info": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "error": {
+                      "type": "object",
+                      "example": {},
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "details": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The Health Check is not successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "info": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "error": {
+                      "type": "object",
+                      "example": {
+                        "redis": {
+                          "status": "down",
+                          "message": "Could not connect"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "details": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        },
+                        "redis": {
+                          "status": "down",
+                          "message": "Could not connect"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Bağımlılıkların hazır olup olmadığını kontrol eder",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "HealthController_root",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The Health Check is successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "info": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "error": {
+                      "type": "object",
+                      "example": {},
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "details": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The Health Check is not successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "info": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "error": {
+                      "type": "object",
+                      "example": {
+                        "redis": {
+                          "status": "down",
+                          "message": "Could not connect"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "details": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        },
+                        "redis": {
+                          "status": "down",
+                          "message": "Could not connect"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Genel sağlık özeti (readiness ile aynı kontroller)",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/v1/auth/register": {
+      "post": {
+        "operationId": "AuthController_register",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "E-posta ve şifre ile yeni hesap oluşturur",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/password-reset/request": {
+      "post": {
+        "description": "Adres kayıtlı olsun olmasın aynı yanıt döner; kullanıcı sayımı engellenir.",
+        "operationId": "AuthController_requestPasswordReset",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestPasswordResetDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Şifre sıfırlama bağlantısı gönderir",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/password-reset/confirm": {
+      "post": {
+        "description": "Başarılı olduğunda kullanıcının tüm oturumları kapatılır.",
+        "operationId": "AuthController_confirmPasswordReset",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmPasswordResetDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Jetonla yeni şifreyi kaydeder",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "E-posta ve şifre ile giriş yapar",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/oauth/{provider}": {
+      "post": {
+        "description": "Sağlayıcıdan alınan id_token sunucuda, sağlayıcının açık anahtarıyla doğrulanır. İstemciden gelen kullanıcı bilgisine güvenilmez.",
+        "operationId": "AuthController_oauth",
+        "parameters": [
+          {
+            "name": "provider",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthLoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Sosyal giriş",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/refresh": {
+      "post": {
+        "description": "Yenileme jetonu her kullanımda döner. Kullanılmış bir jeton tekrar sunulursa hırsızlık varsayılır ve kullanıcının tüm oturumları kapatılır.",
+        "operationId": "AuthController_refresh",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Erişim jetonunu yeniler",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/logout": {
+      "post": {
+        "operationId": "AuthController_logout",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Yalnızca mevcut oturumu kapatır",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/logout-all": {
+      "post": {
+        "operationId": "AuthController_logoutAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Tüm cihazlardaki oturumları kapatır",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/me": {
+      "get": {
+        "operationId": "AuthController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Oturum açmış kullanıcının profili",
+        "tags": [
+          "auth"
+        ]
+      },
+      "patch": {
+        "operationId": "AuthController_updateProfile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Profil bilgilerini günceller",
+        "tags": [
+          "auth"
+        ]
+      },
+      "delete": {
+        "description": "Kişisel alanlar anonimleştirilir; sipariş ve ödeme kayıtları yasal saklama süresince korunur ancak kişiye bağlanamaz.",
+        "operationId": "AuthController_deleteAccount",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Hesabı kapatır (KVKK)",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/change-password": {
+      "post": {
+        "description": "Başarılı olduğunda mevcut oturum dışındaki tüm oturumlar kapatılır.",
+        "operationId": "AuthController_changePassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Şifre değiştirir",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/me/notification-preferences": {
+      "get": {
+        "operationId": "AuthController_notificationPreferences",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Bildirim tercihlerini döndürür",
+        "tags": [
+          "auth"
+        ]
+      },
+      "patch": {
+        "description": "Gönderilmeyen alan mevcut değerini korur.",
+        "operationId": "AuthController_updateNotificationPreferences",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationPreferencesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Bildirim tercihlerini günceller",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/sessions": {
+      "get": {
+        "operationId": "AuthController_sessions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Açık oturumları listeler (cihaz yönetimi)",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/sessions/{id}": {
+      "delete": {
+        "operationId": "AuthController_revokeSession",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Belirli bir oturumu kapatır",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/bags/nearby": {
+      "get": {
+        "description": "Konum verilirse mesafe PostGIS ile hesaplanır ve yarıçap filtresi coğrafi indeks üzerinden uygulanır. Konum verilmezse mesafe null döner.",
+        "operationId": "BagsController_nearby",
+        "parameters": [
+          {
+            "name": "lat",
+            "required": false,
+            "in": "query",
+            "description": "Kullanıcı enlemi",
+            "schema": {
+              "example": 40.9877,
+              "type": "number"
+            }
+          },
+          {
+            "name": "lng",
+            "required": false,
+            "in": "query",
+            "description": "Kullanıcı boylamı",
+            "schema": {
+              "example": 29.0277,
+              "type": "number"
+            }
+          },
+          {
+            "name": "radiusKm",
+            "required": false,
+            "in": "query",
+            "description": "Arama yarıçapı (km)",
+            "schema": {
+              "default": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "BAKERY",
+                "MARKET",
+                "CAFE",
+                "RESTAURANT"
+              ]
+            }
+          },
+          {
+            "name": "pickupFrom",
+            "required": false,
+            "in": "query",
+            "description": "Teslim aralığı başlangıç filtresi",
+            "schema": {
+              "example": "18:00",
+              "type": "string"
+            }
+          },
+          {
+            "name": "pickupTo",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "23:00",
+              "type": "string"
+            }
+          },
+          {
+            "name": "maxPriceMinor",
+            "required": false,
+            "in": "query",
+            "description": "Azami satış fiyatı (kuruş)",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "İşletme veya paket adında arama",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "relevance",
+              "type": "string",
+              "enum": [
+                "relevance",
+                "distance",
+                "price",
+                "rating",
+                "pickup_time"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 50,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Yakındaki paketleri listeler",
+        "tags": [
+          "bags"
+        ]
+      }
+    },
+    "/v1/bags": {
+      "get": {
+        "operationId": "BagsController_list",
+        "parameters": [
+          {
+            "name": "lat",
+            "required": false,
+            "in": "query",
+            "description": "Kullanıcı enlemi",
+            "schema": {
+              "example": 40.9877,
+              "type": "number"
+            }
+          },
+          {
+            "name": "lng",
+            "required": false,
+            "in": "query",
+            "description": "Kullanıcı boylamı",
+            "schema": {
+              "example": 29.0277,
+              "type": "number"
+            }
+          },
+          {
+            "name": "radiusKm",
+            "required": false,
+            "in": "query",
+            "description": "Arama yarıçapı (km)",
+            "schema": {
+              "default": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "BAKERY",
+                "MARKET",
+                "CAFE",
+                "RESTAURANT"
+              ]
+            }
+          },
+          {
+            "name": "pickupFrom",
+            "required": false,
+            "in": "query",
+            "description": "Teslim aralığı başlangıç filtresi",
+            "schema": {
+              "example": "18:00",
+              "type": "string"
+            }
+          },
+          {
+            "name": "pickupTo",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "23:00",
+              "type": "string"
+            }
+          },
+          {
+            "name": "maxPriceMinor",
+            "required": false,
+            "in": "query",
+            "description": "Azami satış fiyatı (kuruş)",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "İşletme veya paket adında arama",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "relevance",
+              "type": "string",
+              "enum": [
+                "relevance",
+                "distance",
+                "price",
+                "rating",
+                "pickup_time"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 50,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Paketleri listeler (nearby ile aynı filtreler)",
+        "tags": [
+          "bags"
+        ]
+      }
+    },
+    "/v1/bags/{id}": {
+      "get": {
+        "operationId": "BagsController_detail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Paket detayı",
+        "tags": [
+          "bags"
+        ]
+      }
+    },
+    "/v1/bags/{id}/favorite": {
+      "post": {
+        "description": "Favori işletme düzeyinde tutulur; paket kimliği işletmesine çevrilir. Tekrarlanan istek hata üretmez.",
+        "operationId": "BagsController_addFavorite",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Paketi favorilere ekler",
+        "tags": [
+          "bags"
+        ]
+      },
+      "delete": {
+        "operationId": "BagsController_removeFavorite",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Paketi favorilerden çıkarır",
+        "tags": [
+          "bags"
+        ]
+      }
+    },
+    "/v1/stores/{id}": {
+      "get": {
+        "operationId": "StoresController_detail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "İşletme profili",
+        "tags": [
+          "stores"
+        ]
+      }
+    },
+    "/v1/stores/{id}/bags": {
+      "get": {
+        "operationId": "StoresController_bags",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "İşletmenin yayındaki paketleri",
+        "tags": [
+          "stores"
+        ]
+      }
+    },
+    "/v1/stores/{id}/favorite": {
+      "post": {
+        "operationId": "StoresController_addFavorite",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "İşletmeyi favorilere ekler",
+        "tags": [
+          "stores"
+        ]
+      },
+      "delete": {
+        "operationId": "StoresController_removeFavorite",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "İşletmeyi favorilerden çıkarır",
+        "tags": [
+          "stores"
+        ]
+      }
+    },
+    "/v1/favorites": {
+      "get": {
+        "description": "Favoriler ekranı bir işletmenin şu an satışta olup olmadığını göstermek zorunda olduğu için paketler de birlikte döner.",
+        "operationId": "FavoritesController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Favori işletmeler ve varsa bugünkü paketleri",
+        "tags": [
+          "favorites"
+        ]
+      }
+    },
+    "/v1/orders": {
+      "post": {
+        "description": "Stok, ödeme onayı beklenmeden rezerve edilir; aksi hâlde ödeme sayfasındayken paket başkasına satılabilirdi. Ödeme tamamlanmazsa rezervasyon otomatik geri verilir.",
+        "operationId": "OrdersController_create",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Kullanıcı eylemi başına bir kez üretilmelidir (istek başına değil). Ağ tekrarında aynı anahtarla gelen istek ikinci sipariş oluşturmaz.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Sipariş oluşturur ve ödemeyi başlatır",
+        "tags": [
+          "orders"
+        ]
+      },
+      "get": {
+        "operationId": "OrdersController_list",
+        "parameters": [
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Kullanıcının siparişleri",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/v1/orders/{id}": {
+      "get": {
+        "operationId": "OrdersController_detail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Sipariş detayı",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/v1/orders/{id}/cancel": {
+      "post": {
+        "description": "Ücretsiz iptal penceresi teslim aralığına kalan süreye göre belirlenir. Ödeme alınmışsa iade süreci başlatılır.",
+        "operationId": "OrdersController_cancel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Siparişi iptal eder",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/v1/orders/{id}/pickup-nonce": {
+      "post": {
+        "description": "Yalnızca teslim aralığı içindeyken ve sunucu saatine göre verilir; istemcinin saatine güvenilmez.",
+        "operationId": "OrdersController_pickupNonce",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Teslim doğrulaması için tek kullanımlık kod üretir",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/v1/orders/{id}/pickup": {
+      "post": {
+        "description": "Kaydırma hareketi tek başına yeterli değildir: sunucu nonce, sipariş sahipliği ve zaman aralığını kendi saatine göre doğrular.",
+        "operationId": "OrdersController_confirmPickup",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmPickupDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Teslim alındığını onaylar",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/v1/orders/{id}/share-pickup": {
+      "post": {
+        "description": "Asıl teslim kodu paylaşılmaz; ayrı ve süreli bir jeton verilir.",
+        "operationId": "OrdersController_sharePickup",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Arkadaşa teslim bağlantısı üretir",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/v1/orders/{id}/rating": {
+      "post": {
+        "description": "Yalnızca teslim alınmış sipariş puanlanabilir ve her sipariş bir kez değerlendirilir. Mağaza ortalaması aynı transaction içinde güncellenir.",
+        "operationId": "OrdersController_rateOrder",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RateOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Siparişi değerlendirir",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/v1/orders/{id}/payment-callback": {
+      "post": {
+        "operationId": "OrdersController_paymentCallback",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Ödeme sağlayıcısı dönüş ucu (3D Secure sonrası)",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/v1/notifications": {
+      "get": {
+        "operationId": "NotificationsController_list",
+        "parameters": [
+          {
+            "name": "unread",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Bildirimleri listeler",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/v1/notifications/unread-count": {
+      "get": {
+        "operationId": "NotificationsController_unreadCount",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Okunmamış bildirim sayısı (rozet için)",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/v1/notifications/{id}/read": {
+      "patch": {
+        "operationId": "NotificationsController_markRead",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Bildirimi okundu işaretler",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/v1/notifications/read-all": {
+      "post": {
+        "operationId": "NotificationsController_markAllRead",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Tümünü okundu işaretler",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/v1/devices/push-token": {
+      "post": {
+        "operationId": "DevicesController_register",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterPushTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Push bildirim jetonunu kaydeder",
+        "tags": [
+          "devices"
+        ]
+      }
+    },
+    "/v1/impact/me": {
+      "get": {
+        "description": "Yalnızca teslim alınmış siparişler sayılır.",
+        "operationId": "ImpactController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Kullanıcının çevresel etkisi",
+        "tags": [
+          "impact"
+        ]
+      }
+    },
+    "/v1/impact/community": {
+      "get": {
+        "operationId": "ImpactController_community",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Topluluk toplam etkisi (tanıtım sayfası için)",
+        "tags": [
+          "impact"
+        ]
+      }
+    },
+    "/v1/support/tickets": {
+      "post": {
+        "description": "Giriş yapmamış kullanıcı da talep açabilir.",
+        "operationId": "SupportController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSupportTicketDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Destek talebi oluşturur",
+        "tags": [
+          "support"
+        ]
+      },
+      "get": {
+        "operationId": "SupportController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Kullanıcının destek talepleri",
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/v1/support/tickets/{id}": {
+      "get": {
+        "operationId": "SupportController_detail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Destek talebi detayı",
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/v1/waitlist": {
+      "post": {
+        "operationId": "WaitlistController_join",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinWaitlistDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Bekleme listesine katılır",
+        "tags": [
+          "waitlist"
+        ]
+      }
+    },
+    "/v1/waitlist/{feature}/count": {
+      "get": {
+        "operationId": "WaitlistController_count",
+        "parameters": [
+          {
+            "name": "feature",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Özelliğin bekleme listesi sayısı",
+        "tags": [
+          "waitlist"
+        ]
+      }
+    },
+    "/v1/partner/stores": {
+      "get": {
+        "operationId": "PartnerController_stores",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Kullanıcının yönetebildiği işletmeler",
+        "tags": [
+          "partner"
+        ]
+      }
+    },
+    "/v1/partner/dashboard": {
+      "get": {
+        "description": "Bugünün cirosu, bekleyen teslimler, aktif paketler ve 7 günlük seri tek çağrıda döner.",
+        "operationId": "PartnerController_dashboard",
+        "parameters": [
+          {
+            "name": "storeId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Panel özeti",
+        "tags": [
+          "partner"
+        ]
+      }
+    },
+    "/v1/partner/bags": {
+      "get": {
+        "operationId": "PartnerController_listBags",
+        "parameters": [
+          {
+            "name": "storeId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "İşletmenin paketleri (satılan adet dahil)",
+        "tags": [
+          "partner"
+        ]
+      },
+      "post": {
+        "operationId": "PartnerController_createBag",
+        "parameters": [
+          {
+            "name": "storeId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBagDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Yeni sürpriz paket yayınlar",
+        "tags": [
+          "partner"
+        ]
+      }
+    },
+    "/v1/partner/bags/{id}": {
+      "patch": {
+        "description": "Toplam adet, satılmış adedin altına indirilemez.",
+        "operationId": "PartnerController_updateBag",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBagDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Paketi günceller",
+        "tags": [
+          "partner"
+        ]
+      },
+      "delete": {
+        "description": "Sipariş almış paket silinmez, iptal edilir — geçmiş bozulmamalı.",
+        "operationId": "PartnerController_deleteBag",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Paketi siler",
+        "tags": [
+          "partner"
+        ]
+      }
+    },
+    "/v1/partner/bags/{id}/publish": {
+      "post": {
+        "operationId": "PartnerController_publishBag",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Paketi yayına alır",
+        "tags": [
+          "partner"
+        ]
+      }
+    },
+    "/v1/partner/bags/{id}/pause": {
+      "post": {
+        "operationId": "PartnerController_pauseBag",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Paketi yayından kaldırır",
+        "tags": [
+          "partner"
+        ]
+      }
+    },
+    "/v1/partner/bags/{id}/toggle": {
+      "post": {
+        "operationId": "PartnerController_toggleBag",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ToggleBagDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Paketi yayına alır veya kaldırır",
+        "tags": [
+          "partner"
+        ]
+      }
+    },
+    "/v1/partner/templates": {
+      "get": {
+        "operationId": "PartnerController_listTemplates",
+        "parameters": [
+          {
+            "name": "storeId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Tekrar eden paket şablonları",
+        "tags": [
+          "partner"
+        ]
+      },
+      "post": {
+        "description": "Zamanlanmış iş, aktif şablonlardan her gün paket üretir.",
+        "operationId": "PartnerController_createTemplate",
+        "parameters": [
+          {
+            "name": "storeId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBagTemplateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Tekrar eden paket şablonu oluşturur",
+        "tags": [
+          "partner"
+        ]
+      }
+    },
+    "/v1/partner/templates/{id}/toggle": {
+      "post": {
+        "operationId": "PartnerController_toggleTemplate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ToggleBagDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Şablonu etkinleştirir veya durdurur",
+        "tags": [
+          "partner"
+        ]
+      }
+    },
+    "/v1/partner/orders": {
+      "get": {
+        "description": "Müşteri adı maskelenir; teslimde eşleştirme için baş harf yeterlidir.",
+        "operationId": "PartnerController_listOrders",
+        "parameters": [
+          {
+            "name": "storeId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "date",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "İşletmenin siparişleri",
+        "tags": [
+          "partner"
+        ]
+      }
+    },
+    "/v1/partner/orders/{id}/confirm-pickup": {
+      "post": {
+        "description": "Müşteri uygulamayı açamadığında (şarj bitti, internet yok) personel kodu girerek teslimi tamamlayabilir.",
+        "operationId": "PartnerController_confirmPickup",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmPartnerPickupDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Teslim kodunu doğrulayarak siparişi tamamlar",
+        "tags": [
+          "partner"
+        ]
+      }
+    },
+    "/v1/partner/store": {
+      "get": {
+        "operationId": "PartnerController_store",
+        "parameters": [
+          {
+            "name": "storeId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Mağaza profili",
+        "tags": [
+          "partner"
+        ]
+      },
+      "patch": {
+        "operationId": "PartnerController_updateStore",
+        "parameters": [
+          {
+            "name": "storeId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStoreDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Mağaza profilini günceller",
+        "tags": [
+          "partner"
+        ]
+      }
+    },
+    "/v1/partner/payouts": {
+      "get": {
+        "operationId": "PartnerController_payoutHistory",
+        "parameters": [
+          {
+            "name": "storeId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Hakediş geçmişi",
+        "tags": [
+          "partner"
+        ]
+      }
+    },
+    "/v1/partner/payouts/summary": {
+      "get": {
+        "description": "Yalnızca teslim alınmış siparişler hakedişe girer; iade edilenler dönemden düşülür.",
+        "operationId": "PartnerController_payoutSummary",
+        "parameters": [
+          {
+            "name": "storeId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "month",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Dönem hakediş özeti",
+        "tags": [
+          "partner"
+        ]
+      }
+    },
+    "/v1/partners/applications": {
+      "post": {
+        "operationId": "PartnerApplicationController_apply",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartnerApplicationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "İşletme ön kayıt başvurusu",
+        "tags": [
+          "partner"
+        ]
+      }
+    },
+    "/v1/admin/overview": {
+      "get": {
+        "operationId": "AdminController_overview",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Sistem geneli özet",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/applications": {
+      "get": {
+        "operationId": "AdminController_applications",
+        "parameters": [
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "İşletme başvuruları",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/applications/{id}/review": {
+      "post": {
+        "description": "Onaylandığında işletme kaydı oluşturulur, başvuru e-postasıyla eşleşen kullanıcı sahip olarak atanır ve rolü PARTNER’a yükseltilir.",
+        "operationId": "AdminController_reviewApplication",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewApplicationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Başvuruyu değerlendirir",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/stores": {
+      "get": {
+        "operationId": "AdminController_stores",
+        "parameters": [
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "İşletmeler",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/stores/{id}/status": {
+      "patch": {
+        "description": "Askıya alınan işletmenin yayındaki paketleri de durdurulur.",
+        "operationId": "AdminController_setStoreStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStoreStatusDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "İşletme durumunu değiştirir",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/stores/{id}/commission": {
+      "patch": {
+        "description": "Geçmiş siparişleri etkilemez — komisyon sipariş anında dondurulur.",
+        "operationId": "AdminController_setCommission",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetCommissionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Komisyon oranını değiştirir",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/stores/{id}/payout-details": {
+      "patch": {
+        "description": "Bilgiler eksiksiz olduğunda işletme hakedişe uygun hâle gelir.",
+        "operationId": "AdminController_setPayoutDetails",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayoutDetailsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Hakediş bilgilerini günceller (IBAN, vergi)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/stores/{id}/payouts/generate": {
+      "post": {
+        "operationId": "AdminController_generatePayout",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "month",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Verilen dönem için hakediş kaydı üretir",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/payouts/{id}/mark-paid": {
+      "post": {
+        "operationId": "AdminController_markPaid",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkPayoutPaidDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Hakedişi ödendi olarak işaretler",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/support/tickets": {
+      "get": {
+        "operationId": "AdminController_tickets",
+        "parameters": [
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Destek talepleri",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/support/tickets/{id}": {
+      "patch": {
+        "operationId": "AdminController_updateTicket",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTicketDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Destek talebi durumunu günceller",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/audit-log": {
+      "get": {
+        "operationId": "AdminController_auditLog",
+        "parameters": [
+          {
+            "name": "entity",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Denetim kaydı",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/media/images": {
+      "post": {
+        "description": "Dosya türü uzantıya değil, dosyanın ilk baytlarına göre belirlenir. Dosya adı sunucuda üretilir; istemciden gelen ad kullanılmaz.",
+        "operationId": "MediaController_uploadImage",
+        "parameters": [
+          {
+            "name": "folder",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "storeId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Paket veya mağaza görseli yükler",
+        "tags": [
+          "media"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "YePaket API",
+    "description": "Gıda kurtarma pazaryeri API’si. Tüm parasal alanlar tam sayı kuruştur ve adı `_minor` ile biter. Zaman damgaları UTC ve ISO 8601’dir.",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "access-token": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "DeviceInfoDto": {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "description": "Cihazı tekil olarak tanımlayan kimlik",
+            "example": "ios-9f2a..."
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "IOS",
+              "ANDROID",
+              "WEB"
+            ]
+          },
+          "pushToken": {
+            "type": "string",
+            "description": "Push bildirim jetonu"
+          },
+          "appVersion": {
+            "type": "string",
+            "example": "1.0.0"
+          }
+        },
+        "required": [
+          "deviceId",
+          "platform"
+        ]
+      },
+      "RegisterDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "eylul@example.com"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "example": "CokGizliSifre123"
+          },
+          "name": {
+            "type": "string",
+            "example": "Eylül Kaya"
+          },
+          "phone": {
+            "type": "string",
+            "example": "05551112233"
+          },
+          "device": {
+            "$ref": "#/components/schemas/DeviceInfoDto"
+          }
+        },
+        "required": [
+          "email",
+          "password",
+          "name",
+          "device"
+        ]
+      },
+      "RequestPasswordResetDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "eylul@example.com"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "ConfirmPasswordResetDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "E-postadaki bağlantıda yer alan jeton"
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "token",
+          "newPassword"
+        ]
+      },
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "demo@yepaket.app"
+          },
+          "password": {
+            "type": "string",
+            "example": "demo1234"
+          },
+          "device": {
+            "$ref": "#/components/schemas/DeviceInfoDto"
+          }
+        },
+        "required": [
+          "email",
+          "password",
+          "device"
+        ]
+      },
+      "OAuthLoginDto": {
+        "type": "object",
+        "properties": {
+          "idToken": {
+            "type": "string",
+            "description": "Sağlayıcıdan alınan kimlik jetonu. Doğrulaması sunucuda yapılır."
+          },
+          "name": {
+            "type": "string",
+            "description": "Apple ilk girişte adı yalnızca burada gönderir."
+          },
+          "device": {
+            "$ref": "#/components/schemas/DeviceInfoDto"
+          }
+        },
+        "required": [
+          "idToken",
+          "device"
+        ]
+      },
+      "RefreshDto": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string"
+          },
+          "device": {
+            "$ref": "#/components/schemas/DeviceInfoDto"
+          }
+        },
+        "required": [
+          "refreshToken",
+          "device"
+        ]
+      },
+      "UpdateProfileDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "tr-TR",
+              "en-US"
+            ]
+          }
+        }
+      },
+      "ChangePasswordDto": {
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "type": "string"
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "currentPassword",
+          "newPassword"
+        ]
+      },
+      "NotificationPreferencesDto": {
+        "type": "object",
+        "properties": {
+          "bagAvailable": {
+            "type": "boolean",
+            "description": "Favori işletme yeni paket yayınladığında"
+          },
+          "orderUpdates": {
+            "type": "boolean",
+            "description": "Sipariş durumu ve teslim hatırlatması"
+          },
+          "impactDigest": {
+            "type": "boolean",
+            "description": "Aylık etki özeti"
+          },
+          "campaigns": {
+            "type": "boolean",
+            "description": "Kampanya ve duyurular"
+          }
+        }
+      },
+      "CreateOrderDto": {
+        "type": "object",
+        "properties": {
+          "bagId": {
+            "type": "string",
+            "description": "Sipariş verilecek paket"
+          },
+          "quantity": {
+            "type": "object",
+            "minimum": 1,
+            "maximum": 10,
+            "default": 1
+          }
+        },
+        "required": [
+          "bagId",
+          "quantity"
+        ]
+      },
+      "CancelOrderDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 200
+          }
+        }
+      },
+      "ConfirmPickupDto": {
+        "type": "object",
+        "properties": {
+          "pickupNonce": {
+            "type": "string",
+            "description": "Teslim ekranından alınan tek kullanımlık doğrulama"
+          }
+        },
+        "required": [
+          "pickupNonce"
+        ]
+      },
+      "RateOrderDto": {
+        "type": "object",
+        "properties": {
+          "overall": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "foodQuality": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "pickupExperience": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "tags": {
+            "example": [
+              "Lezzetli",
+              "Kolay teslim"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "comment": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "overall"
+        ]
+      },
+      "RegisterPushTokenDto": {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "IOS",
+              "ANDROID",
+              "WEB"
+            ]
+          },
+          "pushToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "deviceId",
+          "platform",
+          "pushToken"
+        ]
+      },
+      "CreateSupportTicketDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "ORDER",
+              "ACCOUNT",
+              "PAYMENT",
+              "PARTNER",
+              "OTHER"
+            ]
+          },
+          "orderId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "subject",
+          "message"
+        ]
+      },
+      "JoinWaitlistDto": {
+        "type": "object",
+        "properties": {
+          "feature": {
+            "type": "string",
+            "enum": [
+              "parcels",
+              "business",
+              "corporate"
+            ]
+          },
+          "email": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "feature",
+          "email"
+        ]
+      },
+      "CreateBagDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Günün Fırın Paketi"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "BAKERY",
+              "MARKET",
+              "CAFE",
+              "RESTAURANT"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "imageUrls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "originalValueMinor": {
+            "type": "number",
+            "description": "Normal değer (kuruş)",
+            "example": 42000
+          },
+          "salePriceMinor": {
+            "type": "number",
+            "description": "Satış fiyatı (kuruş)",
+            "example": 13900
+          },
+          "quantity": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 200
+          },
+          "pickupStartsAt": {
+            "type": "string",
+            "description": "Teslim başlangıcı (ISO-8601 UTC)"
+          },
+          "pickupEndsAt": {
+            "type": "string",
+            "description": "Teslim bitişi (ISO-8601 UTC)"
+          }
+        },
+        "required": [
+          "title",
+          "category",
+          "originalValueMinor",
+          "salePriceMinor",
+          "quantity",
+          "pickupStartsAt",
+          "pickupEndsAt"
+        ]
+      },
+      "UpdateBagDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Yeni toplam adet"
+          },
+          "salePriceMinor": {
+            "type": "number"
+          },
+          "pickupStartsAt": {
+            "type": "string"
+          },
+          "pickupEndsAt": {
+            "type": "string"
+          }
+        }
+      },
+      "ToggleBagDto": {
+        "type": "object",
+        "properties": {
+          "published": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "published"
+        ]
+      },
+      "CreateBagTemplateDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "BAKERY",
+              "MARKET",
+              "CAFE",
+              "RESTAURANT"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "originalValueMinor": {
+            "type": "number"
+          },
+          "salePriceMinor": {
+            "type": "number"
+          },
+          "defaultQuantity": {
+            "type": "number"
+          },
+          "pickupStart": {
+            "type": "string",
+            "example": "20:00",
+            "description": "Yerel saat"
+          },
+          "pickupEnd": {
+            "type": "string",
+            "example": "20:30",
+            "description": "Yerel saat"
+          },
+          "publishMode": {
+            "type": "string",
+            "enum": [
+              "ONCE",
+              "DAILY",
+              "WEEKLY"
+            ]
+          },
+          "weekdays": {
+            "description": "WEEKLY modunda yayın günleri (1=Pazartesi … 7=Pazar)",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "title",
+          "category",
+          "originalValueMinor",
+          "salePriceMinor",
+          "defaultQuantity",
+          "pickupStart",
+          "pickupEnd",
+          "publishMode"
+        ]
+      },
+      "ConfirmPartnerPickupDto": {
+        "type": "object",
+        "properties": {
+          "pickupCode": {
+            "type": "string",
+            "description": "Müşterinin gösterdiği 6 haneli teslim kodu"
+          }
+        },
+        "required": [
+          "pickupCode"
+        ]
+      },
+      "UpdateStoreDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "addressLine": {
+            "type": "string"
+          },
+          "district": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "openingTime": {
+            "type": "string",
+            "example": "07:30"
+          },
+          "closingTime": {
+            "type": "string",
+            "example": "21:30"
+          },
+          "logoUrl": {
+            "type": "string"
+          },
+          "coverUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "PartnerApplicationDto": {
+        "type": "object",
+        "properties": {
+          "businessName": {
+            "type": "string"
+          },
+          "businessType": {
+            "type": "string",
+            "example": "Fırın / Pastane"
+          },
+          "contactName": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "district": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "businessName",
+          "businessType",
+          "contactName",
+          "phone",
+          "email",
+          "city",
+          "district"
+        ]
+      },
+      "StoreLocationDto": {
+        "type": "object",
+        "properties": {
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "addressLine": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "latitude",
+          "longitude",
+          "addressLine"
+        ]
+      },
+      "ReviewApplicationDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "CONTACTED",
+              "APPROVED",
+              "REJECTED"
+            ]
+          },
+          "ownerUserId": {
+            "type": "string",
+            "description": "Onaylanırsa işletme sahibi olacak kullanıcı"
+          },
+          "location": {
+            "description": "Onaylanırsa işletme konumu",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StoreLocationDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "UpdateStoreStatusDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "APPROVED",
+              "SUSPENDED",
+              "REJECTED"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "SetCommissionDto": {
+        "type": "object",
+        "properties": {
+          "commissionRateBps": {
+            "type": "number",
+            "description": "Baz puan (1200 = %12)",
+            "minimum": 0,
+            "maximum": 10000
+          }
+        },
+        "required": [
+          "commissionRateBps"
+        ]
+      },
+      "PayoutDetailsDto": {
+        "type": "object",
+        "properties": {
+          "legalName": {
+            "type": "string",
+            "description": "Ticari unvan"
+          },
+          "taxNumber": {
+            "type": "string"
+          },
+          "taxOffice": {
+            "type": "string"
+          },
+          "mersisNo": {
+            "type": "string"
+          },
+          "iban": {
+            "type": "string",
+            "example": "TR330006100519786457841326"
+          },
+          "ibanHolder": {
+            "type": "string"
+          },
+          "submerchantKey": {
+            "type": "string",
+            "description": "Ödeme sağlayıcısındaki alt üye işyeri kimliği"
+          }
+        }
+      },
+      "MarkPayoutPaidDto": {
+        "type": "object",
+        "properties": {
+          "reference": {
+            "type": "string",
+            "description": "Banka dekont/işlem referansı"
+          }
+        },
+        "required": [
+          "reference"
+        ]
+      },
+      "UpdateTicketDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "PENDING",
+              "RESOLVED",
+              "CLOSED"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      }
+    }
+  }
+}

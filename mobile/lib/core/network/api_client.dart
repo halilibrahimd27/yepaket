@@ -100,7 +100,8 @@ class ApiClient {
     var id = prefs.getString(_deviceIdKey);
 
     if (id == null) {
-      id = 'mobile-${DateTime.now().microsecondsSinceEpoch}-${identityHashCode(this)}';
+      id =
+          'mobile-${DateTime.now().microsecondsSinceEpoch}-${identityHashCode(this)}';
       await prefs.setString(_deviceIdKey, id);
     }
 
@@ -182,7 +183,10 @@ class ApiClient {
         ApiEndpoints.refresh,
         data: {
           'refreshToken': token,
-          'device': {'deviceId': await deviceId(), 'platform': ApiConfig.platform},
+          'device': {
+            'deviceId': await deviceId(),
+            'platform': ApiConfig.platform,
+          },
         },
         // Yenileme isteği kendi kendini yenilemeye çalışmasın.
         options: Options(headers: {'Authorization': null}),

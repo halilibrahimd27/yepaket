@@ -29,6 +29,12 @@ export class HealthController {
   /** Süreç ayakta mı? Bağımlılıklara bakmaz — yeniden başlatma kararı için. */
   @Get('live')
   @SkipEnvelope()
+  @ApiOperation({
+    summary: 'Süreç ayakta mı (liveness)',
+    description:
+      'Bağımlılıklara bakmaz. Kubernetes bu ucu 200 dönmediğinde konteyneri yeniden başlatır; ' +
+      'veritabanı kesintisinde yeniden başlatmak durumu düzeltmez, bu yüzden burada kontrol edilmez.',
+  })
   live(): { status: string } {
     return { status: 'ok' };
   }
@@ -64,6 +70,7 @@ export class HealthController {
   @Get()
   @SkipEnvelope()
   @HealthCheck()
+  @ApiOperation({ summary: 'Genel sağlık özeti (readiness ile aynı kontroller)' })
   root() {
     return this.ready();
   }

@@ -67,7 +67,7 @@ export class JoinWaitlistDto {
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim().toLowerCase() : value,
   )
-  @IsIn(WAITLIST_FEATURES as unknown as string[])
+  @IsIn(WAITLIST_FEATURES)
   feature!: string;
 
   @ApiProperty()

@@ -1,0 +1,194 @@
+# =============================================================================
+# YePaket — üretim yığını
+#
+# Tek sunucuda çalışan eksiksiz bir kurulum: veritabanı, önbellek, API, web ve
+# TLS sonlandıran ters vekil.
+#
+# Çalıştırma:
+#   cd infra
+#   cp .env.prod.example .env.prod     # değerleri doldurun
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+#
+# İlk açılışta migration'lar otomatik uygulanır (api-migrate servisi).
+#
+# ÖNEMLİ: Bu dosya tek sunucu içindir. Yüksek erişilebilirlik gerekiyorsa
+# veritabanını yönetilen bir servise (RDS, Cloud SQL, DigitalOcean Managed
+# Postgres) taşıyın ve postgres/redis servislerini buradan çıkarın.
+# =============================================================================
+
+name: yepaket-prod
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  # ---------------------------------------------------------------------------
+  # Veri katmanı
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: ${POSTGRES_IMAGE:-imresamu/postgis:17-3.5}
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER gerekli}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD gerekli}
+      POSTGRES_DB: ${POSTGRES_DB:-yepaket}
+      # Türkçe sıralama için ICU (ı/İ/ş/ğ doğru sıralanır).
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale-provider=icu --icu-locale=tr-TR --locale=C.UTF-8"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    # Dışarıya port AÇILMAZ: veritabanına yalnızca aynı ağdaki servisler erişir.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB:-yepaket}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *default-logging
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    # `noeviction`: Redis oturum kara listesi ve hız sınırı tutar. Bellek
+    # dolduğunda anahtar atmak yerine yazmayı reddetmesi gerekir; sessizce
+    # silinen bir kara liste kaydı iptal edilmiş jetonu geri geçerli kılardı.
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --maxmemory-policy
+      - noeviction
+      - --requirepass
+      - ${REDIS_PASSWORD:?REDIS_PASSWORD gerekli}
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *default-logging
+
+  # ---------------------------------------------------------------------------
+  # Migration
+  #
+  # API'den ayrı bir tek seferlik servis. Aynı imajı kullanır ama yalnızca
+  # migration çalıştırıp çıkar. API bunun başarıyla tamamlanmasını bekler;
+  # şema hazır değilken uygulama açılıp hata vermez.
+  # ---------------------------------------------------------------------------
+  api-migrate:
+    build:
+      context: ../backend
+    restart: "no"
+    command: ["npm", "run", "db:migrate:deploy"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-yepaket}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *default-logging
+
+  # ---------------------------------------------------------------------------
+  # Uygulama
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: ../backend
+    image: yepaket-api:${IMAGE_TAG:-latest}
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-yepaket}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+
+      API_PUBLIC_URL: ${API_PUBLIC_URL:?API_PUBLIC_URL gerekli}
+      WEB_APP_URL: ${WEB_APP_URL:?WEB_APP_URL gerekli}
+      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS gerekli}
+      MOBILE_DEEP_LINK_SCHEME: ${MOBILE_DEEP_LINK_SCHEME:-yepaket}
+
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET gerekli}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET gerekli}
+
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-iyzico}
+      IYZICO_API_KEY: ${IYZICO_API_KEY}
+      IYZICO_SECRET_KEY: ${IYZICO_SECRET_KEY}
+      IYZICO_BASE_URL: ${IYZICO_BASE_URL}
+
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM}
+
+      GOOGLE_CLIENT_IDS: ${GOOGLE_CLIENT_IDS}
+      APPLE_CLIENT_IDS: ${APPLE_CLIENT_IDS}
+      MICROSOFT_CLIENT_IDS: ${MICROSOFT_CLIENT_IDS}
+
+      FCM_SERVICE_ACCOUNT_JSON: ${FCM_SERVICE_ACCOUNT_JSON}
+    volumes:
+      # Yüklenen görseller. Kalıcı birim olmadan konteyner yenilendiğinde
+      # tüm mağaza ve paket görselleri kaybolur.
+      - media:/app/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api-migrate:
+        condition: service_completed_successfully
+    logging: *default-logging
+
+  web:
+    build:
+      context: ../web
+      args:
+        # NEXT_PUBLIC_* değişkenleri istemci paketine derleme sırasında
+        # gömülür; çalışma zamanı ortam değişkeniyle değiştirilemezler.
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:?NEXT_PUBLIC_API_BASE_URL gerekli}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:?NEXT_PUBLIC_SITE_URL gerekli}
+    image: yepaket-web:${IMAGE_TAG:-latest}
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    depends_on:
+      - api
+    logging: *default-logging
+
+  # ---------------------------------------------------------------------------
+  # Ters vekil + TLS
+  #
+  # Caddy seçildi: Let's Encrypt sertifikasını otomatik alır ve yeniler,
+  # yapılandırması nginx'e göre çok daha kısa. Alan adının A kaydı bu sunucuyu
+  # göstermelidir, aksi hâlde sertifika alınamaz.
+  # ---------------------------------------------------------------------------
+  caddy:
+    image: caddy:2-alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      WEB_DOMAIN: ${WEB_DOMAIN:?WEB_DOMAIN gerekli}
+      API_DOMAIN: ${API_DOMAIN:?API_DOMAIN gerekli}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+      - web
+    logging: *default-logging
+
+volumes:
+  postgres-data:
+  redis-data:
+  media:
+  caddy-data:
+  caddy-config:

@@ -84,13 +84,60 @@ jobs:
           LOG_LEVEL: error
           JWT_ACCESS_SECRET: ci_icin_en_az_otuz_iki_karakterlik_gizli_anahtar
           JWT_REFRESH_SECRET: ci_icin_farkli_ve_en_az_otuz_iki_karakterlik_anahtar
+          # Gerçek ödeme sağlayıcısına çıkılmaz; mock yalnızca test ve
+          # geliştirmede kabul edilir (üretimde env doğrulaması reddeder).
+          PAYMENT_PROVIDER: mock
           # Hız sınırı testleri bloklamasın; sınırın kendisi ayrıca test edilir.
+          # Şifre sıfırlama uçlarının kendi sınırları bundan bağımsızdır.
           RATE_LIMIT_PER_MINUTE: 1000
+
+      - name: OpenAPI şeması güncel mi?
+        if: steps.exists.outputs.found == 'true'
+        working-directory: backend
+        run: |
+          npm run openapi
+          if ! git diff --quiet -- openapi.json; then
+            echo "::error::openapi.json güncel değil. 'npm run openapi' çalıştırıp commit'leyin."
+            git diff --stat -- openapi.json
+            exit 1
+          fi
+        env:
+          NODE_ENV: test
+          LOG_LEVEL: error
+          JWT_ACCESS_SECRET: ci_icin_en_az_otuz_iki_karakterlik_gizli_anahtar
+          JWT_REFRESH_SECRET: ci_icin_farkli_ve_en_az_otuz_iki_karakterlik_anahtar
+          PAYMENT_PROVIDER: mock
 
       - name: Build
         if: steps.exists.outputs.found == 'true'
         working-directory: backend
         run: npm run build
+
+  # Üretim imajının gerçekten derlenebildiğini doğrular. Dockerfile'daki
+  # bir hata (eksik dosya, yanlış sıralama) ancak burada yakalanır; testler
+  # host üzerinde çalıştığı için imajı hiç kurmaz.
+  docker:
+    name: Docker imajı
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Backend imajı
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: false
+          load: true
+          tags: yepaket-api:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: İmaj açılıyor mu?
+        run: |
+          docker run --rm --entrypoint node yepaket-api:ci --version
+          docker run --rm --entrypoint sh yepaket-api:ci -c "test -f dist/main.js"
 
   web:
     name: Web

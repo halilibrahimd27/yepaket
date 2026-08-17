@@ -1,0 +1,87 @@
+# =============================================================================
+# YePaket — ters vekil ve TLS
+#
+# Caddy, Let's Encrypt sertifikasını ilk açılışta otomatik alır ve süresi
+# dolmadan yeniler. Ön koşul: her iki alan adının A/AAAA kaydı bu sunucuyu
+# göstermeli ve 80/443 portları dışarıdan erişilebilir olmalı.
+# =============================================================================
+
+{
+	# Sertifika bildirimlerinin gideceği adres. Boş bırakılırsa Let's Encrypt
+	# süresi dolmak üzere olan sertifika için sizi uyaramaz.
+	email {$ACME_EMAIL:destek@yepaket.app}
+
+	# Sunucu sürümünü gizle: saldırganın bilinen açıkları eşlemesini
+	# gereksizce kolaylaştırmaz.
+	servers {
+		protocols h1 h2 h3
+	}
+}
+
+# -----------------------------------------------------------------------------
+# Web uygulaması
+# -----------------------------------------------------------------------------
+{$WEB_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		# HSTS: tarayıcı bu alan adına bir yıl boyunca yalnızca HTTPS ile
+		# bağlanır. Alt alan adlarını da kapsar — HTTP ile yayınlanan bir alt
+		# alan adınız varsa `includeSubDomains` çıkarılmalı.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+
+		# Sayfanın çerçeve içine alınmasını engeller (clickjacking).
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+
+		# Kullanılmayan tarayıcı yetkilerini kapatır.
+		Permissions-Policy "camera=(), microphone=(), geolocation=(self), payment=()"
+
+		# Sunucu parmak izini kaldır.
+		-Server
+		-X-Powered-By
+	}
+
+	reverse_proxy web:3000 {
+		health_uri /
+		health_interval 30s
+		health_timeout 5s
+	}
+}
+
+# -----------------------------------------------------------------------------
+# API
+# -----------------------------------------------------------------------------
+{$API_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		-Server
+		-X-Powered-By
+	}
+
+	# Görsel yüklemeleri 10 MB'a kadar; sunucu tarafında da sınır var ama
+	# vekilde kesmek uygulamayı gereksiz yükten korur.
+	request_body {
+		max_size 10MB
+	}
+
+	# WebSocket (Socket.IO) yükseltmesi ve normal istekler aynı yere gider;
+	# Caddy protokol yükseltmesini kendiliğinden taşır.
+	reverse_proxy api:8080 {
+		health_uri /health/live
+		health_interval 30s
+		health_timeout 5s
+
+		# Uygulama gerçek istemci IP'sini hız sınırı ve denetim kaydı için
+		# kullanır; vekil arkasında bu başlıklar olmadan herkes aynı IP'den
+		# geliyormuş gibi görünür.
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+}

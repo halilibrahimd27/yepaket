@@ -128,8 +128,8 @@ class _OrderTile extends StatelessWidget {
                         color: active
                             ? AppColors.limeDark
                             : order.status == OrderStatus.collected
-                                ? AppColors.limeDark
-                                : AppColors.muted,
+                            ? AppColors.limeDark
+                            : AppColors.muted,
                       ),
                     ),
                   ],

@@ -44,7 +44,10 @@ class _RegisterPageState extends State<RegisterPage> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     if (!_acceptedTerms) {
-      showErrorSnack(context, 'Devam etmek için sözleşmeleri onaylaman gerekiyor.');
+      showErrorSnack(
+        context,
+        'Devam etmek için sözleşmeleri onaylaman gerekiyor.',
+      );
       return;
     }
 
@@ -161,7 +164,9 @@ class _RegisterPageState extends State<RegisterPage> {
                   if (password.length < 8) {
                     return 'Şifre en az 8 karakter olmalı.';
                   }
-                  if (!RegExp(r'(?=.*[a-zA-ZğüşöçıİĞÜŞÖÇ])(?=.*\d)').hasMatch(password)) {
+                  if (!RegExp(
+                    r'(?=.*[a-zA-ZğüşöçıİĞÜŞÖÇ])(?=.*\d)',
+                  ).hasMatch(password)) {
                     return 'Şifre en az bir harf ve bir rakam içermeli.';
                   }
                   return null;
@@ -173,7 +178,8 @@ class _RegisterPageState extends State<RegisterPage> {
                 value: _acceptedTerms,
                 onChanged: _loading
                     ? null
-                    : (value) => setState(() => _acceptedTerms = value ?? false),
+                    : (value) =>
+                          setState(() => _acceptedTerms = value ?? false),
                 controlAffinity: ListTileControlAffinity.leading,
                 contentPadding: EdgeInsets.zero,
                 title: const Text(

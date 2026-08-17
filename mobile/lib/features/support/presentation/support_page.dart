@@ -121,10 +121,7 @@ class _SupportPageState extends State<SupportPage> {
             const SizedBox(height: 24),
 
             if (state.supportTickets.isNotEmpty) ...[
-              Text(
-                'Taleplerin',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
+              Text('Taleplerin', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 10),
               ...state.supportTickets.map(
                 (ticket) => Padding(

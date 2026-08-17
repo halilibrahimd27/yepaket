@@ -142,7 +142,9 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                   if (password.length < 8) {
                     return 'Şifre en az 8 karakter olmalı.';
                   }
-                  if (!RegExp(r'(?=.*[a-zA-ZğüşöçıİĞÜŞÖÇ])(?=.*\d)').hasMatch(password)) {
+                  if (!RegExp(
+                    r'(?=.*[a-zA-ZğüşöçıİĞÜŞÖÇ])(?=.*\d)',
+                  ).hasMatch(password)) {
                     return 'Şifre en az bir harf ve bir rakam içermeli.';
                   }
                   return null;

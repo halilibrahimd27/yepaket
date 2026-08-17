@@ -158,9 +158,15 @@ class AppState extends ChangeNotifier {
   Future<Result<void>> confirmPasswordReset(String token, String newPassword) =>
       _guard(() => authRepository.confirmPasswordReset(token, newPassword));
 
-  Future<Result<AppUser>> signInWithProvider(String provider, String idToken) async {
+  Future<Result<AppUser>> signInWithProvider(
+    String provider,
+    String idToken,
+  ) async {
     return _guard(() async {
-      user = await authRepository.signInWithProvider(provider, idToken: idToken);
+      user = await authRepository.signInWithProvider(
+        provider,
+        idToken: idToken,
+      );
       await refreshBags();
       await Future.wait([refreshOrders(), refreshFavorites(), refreshImpact()]);
       return user!;
@@ -401,12 +407,16 @@ class AppState extends ChangeNotifier {
     final fromServer = _serverImpact;
     if (fromServer != null) return fromServer;
 
-    final collected = orders.where((order) => order.status == OrderStatus.collected);
+    final collected = orders.where(
+      (order) => order.status == OrderStatus.collected,
+    );
 
     final savedBags = collected.fold(0, (sum, order) => sum + order.quantity);
     final savedMinor = collected.fold(
       0,
-      (sum, order) => sum + (order.bag.originalPriceMinor * order.quantity - order.totalMinor),
+      (sum, order) =>
+          sum +
+          (order.bag.originalPriceMinor * order.quantity - order.totalMinor),
     );
 
     // Katsayılar tahmindir; sunucudaki hesapla aynı olmalı ki iki ekran
@@ -475,7 +485,8 @@ class AppState extends ChangeNotifier {
   Future<void> refreshNotificationPreferences() async {
     if (!isAuthenticated) return;
     try {
-      notificationPreferences = await accountRepository.notificationPreferences();
+      notificationPreferences = await accountRepository
+          .notificationPreferences();
     } on ApiException {
       // Tercihler okunamazsa varsayılanlar (hepsi açık) gösterilir.
     }
@@ -494,8 +505,8 @@ class AppState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      notificationPreferences =
-          await accountRepository.updateNotificationPreferences(next);
+      notificationPreferences = await accountRepository
+          .updateNotificationPreferences(next);
       notifyListeners();
       return const Success(null);
     } on ApiException catch (error) {
@@ -551,7 +562,8 @@ class AppState extends ChangeNotifier {
     String feature,
     String email, {
     String? city,
-  }) => _guard(() => accountRepository.joinWaitlist(feature, email, city: city));
+  }) =>
+      _guard(() => accountRepository.joinWaitlist(feature, email, city: city));
 
   Future<int?> waitlistCount(String feature) async {
     try {

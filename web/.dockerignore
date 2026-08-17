@@ -1,0 +1,21 @@
+# Derleme bağlamına gereksiz dosya göndermemek imaj yapımını hızlandırır ve
+# yerel gizli bilgilerin kazara imaja girmesini engeller.
+
+node_modules
+.vinext
+dist
+.next
+
+# Gizli bilgiler — .env.example versiyonlanır, gerçekleri asla.
+.env
+.env.*
+!.env.example
+
+.git
+.github
+.gitignore
+
+*.log
+.DS_Store
+coverage
+tests

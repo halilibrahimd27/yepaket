@@ -78,7 +78,10 @@ GoRouter createAppRouter(AppState state) {
         builder: (context, state) =>
             LoginPage(returnTo: state.uri.queryParameters['devam']),
       ),
-      GoRoute(path: '/kayit', builder: (context, state) => const RegisterPage()),
+      GoRoute(
+        path: '/kayit',
+        builder: (context, state) => const RegisterPage(),
+      ),
       GoRoute(
         path: '/sifremi-unuttum',
         builder: (context, state) => const ForgotPasswordPage(),

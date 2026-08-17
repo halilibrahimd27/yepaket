@@ -189,7 +189,11 @@ class _ParcelsPageState extends State<ParcelsPage> {
               'E-posta adresini yalnızca bu özellik yayına girdiğinde haber '
               'vermek için kullanırız. Dilediğin zaman listeden çıkabilirsin.',
               textAlign: TextAlign.center,
-              style: TextStyle(height: 1.5, fontSize: 10, color: AppColors.muted),
+              style: TextStyle(
+                height: 1.5,
+                fontSize: 10,
+                color: AppColors.muted,
+              ),
             ),
           ],
         ),
@@ -329,7 +333,8 @@ class _JoinForm extends StatelessWidget {
               textCapitalization: TextCapitalization.words,
               decoration: const InputDecoration(
                 labelText: 'Şehir (isteğe bağlı)',
-                helperText: 'Hangi şehirlerden başlayacağımızı buna göre seçiyoruz.',
+                helperText:
+                    'Hangi şehirlerden başlayacağımızı buna göre seçiyoruz.',
               ),
             ),
             const SizedBox(height: 18),
@@ -365,10 +370,7 @@ class _JoinedCard extends StatelessWidget {
             size: 40,
           ),
           const SizedBox(height: 14),
-          Text(
-            'Listedesin!',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
+          Text('Listedesin!', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 6),
           Text(
             '$position. sıradasın. Kargoyla kurtar yayına girdiğinde sana '
