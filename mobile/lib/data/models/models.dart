@@ -100,6 +100,9 @@ class SurpriseBag {
     required this.availableQuantity,
     required this.description,
     required this.address,
+    this.latitude,
+    this.longitude,
+    this.district,
     this.isFavorite = false,
   });
 
@@ -126,6 +129,16 @@ class SurpriseBag {
   final int availableQuantity;
   final String description;
   final String address;
+
+  /// İşletmenin koordinatları. Sunucu her paket yanıtında döndürür;
+  /// harita bunları kullanır. Yoksa paket haritada gösterilmez.
+  final double? latitude;
+  final double? longitude;
+
+  /// İşletmenin ilçe/il bilgisi ("Kadıköy, İstanbul"). Konum çubuğunda
+  /// kullanıcının nerede olduğunu göstermek için kullanılır.
+  final String? district;
+
   final bool isFavorite;
 
   String get priceLabel => Formats.money(priceMinor);
@@ -185,6 +198,9 @@ class SurpriseBag {
         availableQuantity: availableQuantity ?? this.availableQuantity,
         description: description,
         address: address,
+        latitude: latitude,
+        longitude: longitude,
+        district: district,
         isFavorite: isFavorite ?? this.isFavorite,
       );
 }
@@ -416,6 +432,30 @@ enum RescuerLevel {
     return index + 1 < RescuerLevel.values.length
         ? RescuerLevel.values[index + 1]
         : null;
+  }
+}
+
+/// Arkadaşa teslim bağlantısı.
+class SharedPickup {
+  const SharedPickup({required this.token, required this.expiresAt});
+
+  final String token;
+  final DateTime expiresAt;
+
+  factory SharedPickup.fromJson(Map<String, dynamic> json) => SharedPickup(
+    token: json['token']?.toString() ?? '',
+    expiresAt:
+        DateTime.tryParse(json['expires_at']?.toString() ?? '')?.toLocal() ??
+        DateTime.now().add(const Duration(minutes: 30)),
+  );
+
+  /// Paylaşılacak bağlantı. Web tarafı jetonu doğrulayıp teslim ekranını açar.
+  String url(String webUrl) => '$webUrl/teslim?kod=$token';
+
+  /// "23 dk" gibi kalan süre.
+  String get remainingLabel {
+    final minutes = expiresAt.difference(DateTime.now()).inMinutes;
+    return minutes <= 0 ? 'süresi doldu' : '$minutes dk';
   }
 }
 

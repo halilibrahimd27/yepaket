@@ -251,18 +251,11 @@ class _LiveMapView extends StatefulWidget {
 
 class _LiveMapViewState extends State<_LiveMapView>
     with SingleTickerProviderStateMixin {
-  static const center = LatLng(40.9877, 29.0277);
-  static const storeLocations = [
-    LatLng(40.9877, 29.0277),
-    LatLng(40.9849, 29.0314),
-    LatLng(40.9910, 29.0226),
-    LatLng(40.9897, 29.0341),
-  ];
-  static const people = [
-    (point: LatLng(40.9890, 29.0251), emoji: '🧑‍🍳', label: '2 dk'),
-    (point: LatLng(40.9856, 29.0258), emoji: '🥐', label: 'şimdi'),
-    (point: LatLng(40.9884, 29.0324), emoji: '🌿', label: '4 dk'),
-  ];
+  /// Konum ve paket yoksa haritanın açılacağı nokta (İstanbul merkezi).
+  ///
+  /// Yalnızca bir başlangıç görünümü; gerçek merkez kullanıcının konumu ya
+  /// da paketlerin ortalamasıdır.
+  static const _fallbackCenter = LatLng(41.0082, 28.9784);
 
   final mapController = MapController();
   late final AnimationController pulseController;
@@ -288,13 +281,21 @@ class _LiveMapViewState extends State<_LiveMapView>
   Widget build(BuildContext context) {
     // Harita artık AppState'ten besleniyor; DummyData okumak uzak modda
     // var olmayan paketlere yönlendirip çökmeye yol açıyordu (K2).
-    final bags = context.watch<AppState>().bags;
+    final state = context.watch<AppState>();
+
+    // Haritada yalnızca koordinatı bilinen paketler gösterilebilir.
+    // Eskiden gerçek paketler sabit dört koordinata yerleştiriliyordu: harita
+    // paketin nerede olduğunu değil, koda yazılmış bir noktayı gösteriyordu.
+    final bags = state.bags
+        .where((bag) => bag.latitude != null && bag.longitude != null)
+        .toList();
+
     if (bags.isEmpty) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(32),
           child: Text(
-            'Yakınında yayında paket yok.',
+            'Haritada gösterilecek paket yok.',
             textAlign: TextAlign.center,
             style: TextStyle(color: AppColors.muted),
           ),
@@ -303,17 +304,33 @@ class _LiveMapViewState extends State<_LiveMapView>
     }
     final safeIndex = selectedBagIndex.clamp(0, bags.length - 1);
     final selectedBag = bags[safeIndex];
+
+    final userPoint = state.location == null
+        ? null
+        : LatLng(state.location!.latitude, state.location!.longitude);
+
+    // Merkez: kullanıcı konumu varsa orası, yoksa paketlerin ağırlık merkezi.
+    final center =
+        userPoint ??
+        (bags.isEmpty
+            ? _fallbackCenter
+            : LatLng(
+                bags.map((b) => b.latitude!).reduce((a, b) => a + b) /
+                    bags.length,
+                bags.map((b) => b.longitude!).reduce((a, b) => a + b) /
+                    bags.length,
+              ));
     return Stack(
       children: [
         Positioned.fill(
           child: FlutterMap(
             mapController: mapController,
-            options: const MapOptions(
+            options: MapOptions(
               initialCenter: center,
-              initialZoom: 14.5,
-              minZoom: 11,
+              initialZoom: 13.5,
+              minZoom: 9,
               maxZoom: 18,
-              interactionOptions: InteractionOptions(
+              interactionOptions: const InteractionOptions(
                 flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
               ),
             ),
@@ -323,58 +340,44 @@ class _LiveMapViewState extends State<_LiveMapView>
                 userAgentPackageName: ApiConfig.mapUserAgent,
                 maxNativeZoom: 19,
               ),
-              CircleLayer(
-                circles: [
-                  CircleMarker(
-                    point: const LatLng(40.9874, 29.0274),
-                    radius: 68,
-                    color: AppColors.lime.withValues(alpha: .16),
-                    borderColor: AppColors.limeDark.withValues(alpha: .25),
-                    borderStrokeWidth: 2,
-                  ),
-                  CircleMarker(
-                    point: const LatLng(40.9904, 29.0227),
-                    radius: 48,
-                    color: AppColors.forest.withValues(alpha: .09),
-                    borderColor: AppColors.forest.withValues(alpha: .14),
-                    borderStrokeWidth: 1,
-                  ),
-                ],
-              ),
+              // Kullanıcının konumu — varsa. Eskiden burada iki sabit
+              // koordinatta anlamsız daireler çiziliyordu.
+              if (userPoint != null)
+                CircleLayer(
+                  circles: [
+                    CircleMarker(
+                      point: userPoint,
+                      radius: 60,
+                      color: AppColors.forest.withValues(alpha: .10),
+                      borderColor: AppColors.forest.withValues(alpha: .18),
+                      borderStrokeWidth: 1,
+                    ),
+                  ],
+                ),
               MarkerLayer(
                 markers: [
-                  for (
-                    var index = 0;
-                    index < bags.length && index < storeLocations.length;
-                    index++
-                  )
+                  // Her paket kendi işletmesinin gerçek koordinatında.
+                  for (var index = 0; index < bags.length; index++)
                     Marker(
-                      point: storeLocations[index],
+                      point: LatLng(
+                        bags[index].latitude!,
+                        bags[index].longitude!,
+                      ),
                       width: 78,
                       height: 70,
                       child: _StoreMarker(
-                        label: index == 0
-                            ? 'MF'
-                            : index == 1
-                            ? 'K'
-                            : index == 2
-                            ? 'M'
-                            : 'P',
+                        label: _initials(bags[index].store),
                         price: bags[index].priceLabel,
                         selected: safeIndex == index,
                         onTap: () => setState(() => selectedBagIndex = index),
                       ),
                     ),
-                  for (final person in people)
+                  if (userPoint != null)
                     Marker(
-                      point: person.point,
-                      width: 70,
-                      height: 72,
-                      child: _LiveActivityMarker(
-                        animation: pulseController,
-                        emoji: person.emoji,
-                        label: person.label,
-                      ),
+                      point: userPoint,
+                      width: 30,
+                      height: 30,
+                      child: _UserMarker(animation: pulseController),
                     ),
                 ],
               ),
@@ -633,81 +636,51 @@ class _StoreMarker extends StatelessWidget {
   }
 }
 
-class _LiveActivityMarker extends StatelessWidget {
-  const _LiveActivityMarker({
-    required this.animation,
-    required this.emoji,
-    required this.label,
-  });
+/// Kullanıcının konumu — nabız gibi atan nokta.
+class _UserMarker extends StatelessWidget {
+  const _UserMarker({required this.animation});
 
   final Animation<double> animation;
-  final String emoji;
-  final String label;
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: animation,
-      builder: (context, child) {
-        return Stack(
-          alignment: Alignment.center,
-          children: [
-            Transform.scale(
-              scale: .8 + animation.value * .34,
-              child: Opacity(
-                opacity: .28 - animation.value * .14,
-                child: Container(
-                  width: 52,
-                  height: 52,
-                  decoration: const BoxDecoration(
-                    color: AppColors.lime,
-                    shape: BoxShape.circle,
-                  ),
-                ),
+      builder: (context, child) => Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 14 + animation.value * 14,
+            height: 14 + animation.value * 14,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.forest.withValues(
+                alpha: .18 * (1 - animation.value),
               ),
             ),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.lime, width: 3),
-                    boxShadow: const [
-                      BoxShadow(color: Color(0x25000000), blurRadius: 9),
-                    ],
-                  ),
-                  child: Text(emoji, style: const TextStyle(fontSize: 19)),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.forest,
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                  child: Text(
-                    label,
-                    style: const TextStyle(
-                      fontSize: 7,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        );
-      },
+          ),
+          child!,
+        ],
+      ),
+      child: Container(
+        width: 14,
+        height: 14,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: AppColors.forest,
+          border: Border.all(color: Colors.white, width: 2.5),
+        ),
+      ),
     );
   }
+}
+
+/// İşletme adının baş harfleri ("Moda Fırını" → "MF").
+String _initials(String name) {
+  final parts = name.split(' ').where((p) => p.isNotEmpty).toList();
+  if (parts.isEmpty) return '?';
+  if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
 }
 
 class _LiveDot extends StatefulWidget {

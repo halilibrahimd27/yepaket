@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
+import '../../../core/network/api_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/state/app_state.dart';
 import '../../../shared/widgets/app_image.dart';
@@ -72,7 +74,7 @@ class _ActiveOrderPageState extends State<ActiveOrderPage> {
         title: Text(order.orderNo),
         actions: [
           IconButton(
-            onPressed: () => _share(context),
+            onPressed: () => _share(context, order),
             icon: const Icon(Icons.ios_share_rounded),
             tooltip: 'Arkadaşına gönder',
           ),
@@ -202,7 +204,7 @@ class _ActiveOrderPageState extends State<ActiveOrderPage> {
               ),
               const SizedBox(height: 15),
               OutlinedButton.icon(
-                onPressed: () => _share(context),
+                onPressed: () => _share(context, order),
                 icon: const Icon(Icons.person_add_alt_1_rounded),
                 label: const Text('Siparişi arkadaşım teslim alsın'),
                 style: OutlinedButton.styleFrom(
@@ -309,12 +311,30 @@ class _ActiveOrderPageState extends State<ActiveOrderPage> {
     );
   }
 
-  static void _share(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Tek kullanımlık teslim bağlantısı hazırlandı.'),
-      ),
-    );
+  /// Arkadaşa teslim bağlantısı üretir ve paylaşım penceresini açar.
+  ///
+  /// Eskiden yalnızca "bağlantı hazırlandı" bildirimi gösteriyordu; sunucudaki
+  /// `POST /orders/{id}/share-pickup` ucu hiç çağrılmıyordu ve ortada
+  /// paylaşılacak bir bağlantı yoktu.
+  static Future<void> _share(BuildContext context, AppOrder order) async {
+    final result = await context.read<AppState>().sharePickup(order.id);
+
+    if (!context.mounted) return;
+
+    switch (result) {
+      case Success(value: final shared):
+        final link = shared.url(ApiConfig.webUrl);
+        await SharePlus.instance.share(
+          ShareParams(
+            text:
+                '${order.bag.store} paketimi benim yerime alabilirsin. '
+                'Bağlantı ${shared.remainingLabel} geçerli:\n$link',
+            subject: 'YePaket teslim bağlantısı',
+          ),
+        );
+      case Failure(message: final message):
+        showErrorSnack(context, message);
+    }
   }
 
   static Future<void> _cancelOrder(BuildContext context, AppOrder order) async {

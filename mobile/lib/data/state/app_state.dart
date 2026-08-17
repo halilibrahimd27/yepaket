@@ -1,7 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/location/location_service.dart';
 import '../../core/network/api_exception.dart';
+import '../../core/network/realtime_client.dart';
+import '../../core/notifications/push_service.dart';
 import '../models/models.dart';
 import '../repositories/repositories.dart';
 
@@ -30,7 +35,11 @@ class AppState extends ChangeNotifier {
     BagRepository? bagRepository,
     OrderRepository? orderRepository,
     AccountRepository? accountRepository,
-  }) : authRepository = authRepository ?? DummyAuthRepository(),
+    this.realtime,
+    this.push,
+    LocationService? locationService,
+  }) : locationService = locationService ?? LocationService(),
+       authRepository = authRepository ?? DummyAuthRepository(),
        bagRepository = bagRepository ?? DummyBagRepository(),
        orderRepository = orderRepository ?? DummyOrderRepository(),
        accountRepository = accountRepository ?? DummyAccountRepository();
@@ -39,6 +48,38 @@ class AppState extends ChangeNotifier {
   final BagRepository bagRepository;
   final OrderRepository orderRepository;
   final AccountRepository accountRepository;
+
+  /// Gerçek zamanlı olay kanalı. Dummy modda `null`.
+  final RealtimeClient? realtime;
+
+  /// Push bildirimi altyapısı. Firebase yapılandırması yoksa devre dışı kalır.
+  final PushService? push;
+
+  /// Cihaz konumu. İzin verilmezse `null` kalır ve sunucu şehir geneli
+  /// sonuç döndürür.
+  final LocationService locationService;
+
+  UserLocation? location;
+  LocationOutcome? locationOutcome;
+
+  /// Konum çubuğunda gösterilecek metin.
+  String get locationLabel {
+    final current = location;
+    if (current?.label != null) return current!.label!;
+    if (current != null) return 'Yakınındakiler';
+
+    return switch (locationOutcome) {
+      LocationOutcome.deniedForever => 'Konum izni kapalı',
+      LocationOutcome.serviceDisabled => 'Konum servisi kapalı',
+      LocationOutcome.denied => 'Konum izni verilmedi',
+      _ => 'Tüm işletmeler',
+    };
+  }
+
+  bool get hasLocation => location != null;
+
+  StreamSubscription<RealtimeEvent>? _realtimeSubscription;
+  StreamSubscription<String>? _pushTokenSubscription;
 
   AppUser? user;
   bool onboardingSeen = false;
@@ -92,6 +133,10 @@ class AppState extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     onboardingSeen = prefs.getBool('onboarding_seen') ?? false;
 
+    // Son bilinen konum diskten okunur: GPS ilk sabitlenmesi birkaç saniye
+    // sürer ve o süre boyunca liste konumsuz gelirdi.
+    location = await locationService.restore();
+
     if (await authRepository.hasSession) {
       try {
         user = await authRepository.currentUser();
@@ -109,7 +154,144 @@ class AppState extends ChangeNotifier {
         refreshImpact(),
         refreshNotificationPreferences(),
       ]);
+      await _startRealtime();
+      await _registerPushToken();
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Konum
+  // ---------------------------------------------------------------------------
+
+  /// Konumu ister ve listeyi yeniler.
+  ///
+  /// [askIfDenied] false olduğunda sistem izin penceresi gösterilmez; açılışta
+  /// kullanıcıyı karşılamadan izin sormamak için kullanılır.
+  Future<LocationOutcome> requestLocation({bool askIfDenied = true}) async {
+    final (outcome, value) = await locationService.current(
+      askIfDenied: askIfDenied,
+    );
+
+    locationOutcome = outcome;
+    location = value;
+    notifyListeners();
+
+    if (value != null) await refreshBags();
+    return outcome;
+  }
+
+  Future<void> openLocationSettings() => locationService.openSettings();
+
+  // ---------------------------------------------------------------------------
+  // Gerçek zamanlı
+  // ---------------------------------------------------------------------------
+
+  /// Olay kanalını açar ve favori işletmelere abone olur.
+  ///
+  /// Bağlantı kurulamazsa sessizce geçilir: canlı güncelleme olmadan da
+  /// uygulama çalışır, kullanıcıya hata göstermenin bir faydası olmaz.
+  Future<void> _startRealtime() async {
+    final client = realtime;
+    if (client == null) return;
+
+    await client.connect();
+
+    await _realtimeSubscription?.cancel();
+    _realtimeSubscription = client.events.listen(_onRealtimeEvent);
+
+    _syncStoreSubscriptions();
+  }
+
+  Future<void> _stopRealtime() async {
+    await _realtimeSubscription?.cancel();
+    _realtimeSubscription = null;
+    await _pushTokenSubscription?.cancel();
+    _pushTokenSubscription = null;
+    await realtime?.disconnect();
+  }
+
+  /// Favori işletme listesi değiştiğinde abonelikleri günceller.
+  void _syncStoreSubscriptions() {
+    final client = realtime;
+    if (client == null) return;
+
+    final storeIds = <String>{
+      for (final bag in favoriteBags) bag.storeId,
+    }.toList();
+
+    client.subscribeStores(storeIds);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Push bildirimi
+  // ---------------------------------------------------------------------------
+
+  /// Cihazın push jetonunu sunucuya kaydeder.
+  ///
+  /// Giriş sonrasında çağrılır: jeton kullanıcıya bağlanır ve o kullanıcıya
+  /// bildirim gönderilebilir. Bu çağrı olmadan sunucu kimin hangi cihazda
+  /// olduğunu bilemez ve tüm push altyapısı boşa çalışır.
+  Future<void> _registerPushToken() async {
+    final service = push;
+    if (service == null) return;
+
+    final ready = service.isAvailable || await service.initialize();
+    if (!ready) return;
+
+    final token = await service.token();
+    if (token != null) {
+      await _sendPushToken(token);
+    }
+
+    // Jeton yenilendiğinde sessizce bildirim kesilmesin.
+    await _pushTokenSubscription?.cancel();
+    _pushTokenSubscription = service.onTokenRefresh.listen(_sendPushToken);
+  }
+
+  Future<void> _sendPushToken(String token) async {
+    try {
+      await accountRepository.registerPushToken(token);
+    } on ApiException {
+      // Bildirim ikincil bir yetenek; kaydedilemezse ana akış etkilenmez.
+    }
+  }
+
+  void _onRealtimeEvent(RealtimeEvent event) {
+    switch (event.type) {
+      case 'bag.stock.updated':
+        _applyStockUpdate(event);
+
+      case 'bag.available':
+        // Favori işletme yeni paket yayınladı; liste tazelenir.
+        refreshBags();
+
+      case 'order.status.updated':
+        // Sipariş durumu sunucuda değişti (ödeme onaylandı, iptal edildi).
+        refreshOrders();
+    }
+  }
+
+  /// Stok değişimini yerel listeye uygular.
+  ///
+  /// Tüm listeyi yeniden çekmek yerine tek paketi güncellemek, kullanıcı
+  /// listeye bakarken kartların yerinin değişmesini önler.
+  void _applyStockUpdate(RealtimeEvent event) {
+    final bagId = event.bagId;
+    final quantity = event.availableQuantity;
+    if (bagId == null || quantity == null) return;
+
+    var changed = false;
+
+    List<SurpriseBag> apply(List<SurpriseBag> list) => list.map((bag) {
+      if (bag.id != bagId || bag.availableQuantity == quantity) return bag;
+      changed = true;
+      return bag.copyWith(availableQuantity: quantity);
+    }).toList();
+
+    bags = apply(bags);
+    favoriteBags = apply(favoriteBags);
+
+    if (changed) notifyListeners();
   }
 
   Future<void> completeOnboarding() async {
@@ -126,8 +308,7 @@ class AppState extends ChangeNotifier {
   Future<Result<AppUser>> signInWithEmail(String email, String password) async {
     return _guard(() async {
       user = await authRepository.signInWithEmail(email.trim(), password);
-      await refreshBags();
-      await Future.wait([refreshOrders(), refreshFavorites(), refreshImpact()]);
+      await _afterSignIn();
       return user!;
     });
   }
@@ -144,8 +325,7 @@ class AppState extends ChangeNotifier {
         email: email.trim(),
         password: password,
       );
-      await refreshBags();
-      await Future.wait([refreshOrders(), refreshFavorites(), refreshImpact()]);
+      await _afterSignIn();
       return user!;
     });
   }
@@ -173,7 +353,24 @@ class AppState extends ChangeNotifier {
     });
   }
 
+  /// Giriş sonrası ortak hazırlık.
+  ///
+  /// Üç giriş yolunda (e-posta, sosyal, kayıt) aynı adımlar gerekiyor;
+  /// tekrarlamak birinin unutulmasına yol açardı.
+  Future<void> _afterSignIn() async {
+    await refreshBags();
+    await Future.wait([
+      refreshOrders(),
+      refreshFavorites(),
+      refreshImpact(),
+      refreshNotificationPreferences(),
+    ]);
+    await _startRealtime();
+    await _registerPushToken();
+  }
+
   Future<void> signOut() async {
+    await _stopRealtime();
     await authRepository.signOut();
     user = null;
     orders = <AppOrder>[];
@@ -197,8 +394,22 @@ class AppState extends ChangeNotifier {
       bags = await bagRepository.nearby(
         category: selectedCategory,
         sort: selectedSort,
+        // Konum verilmezse sunucu mesafe hesaplayamaz ve "en yakın"
+        // sıralaması sessizce başka bir ölçüte düşer.
+        latitude: location?.latitude,
+        longitude: location?.longitude,
         query: searchQuery.isEmpty ? null : searchQuery,
       );
+
+      // Konum çubuğundaki ad, en yakın işletmenin ilçesinden türetilir:
+      // ayrı bir ters coğrafi kodlama servisi (ve ek maliyet) gerekmez.
+      if (location != null && bags.isNotEmpty) {
+        final district = bags.first.district;
+        if (district != null && district != location!.label) {
+          location = location!.withLabel(district);
+          await locationService.setLabel(district);
+        }
+      }
     } on ApiException catch (error) {
       // Hata sessizce yutulmaz: kullanıcı neden boş liste gördüğünü bilmeli.
       bagsError = error.userMessage;
@@ -266,6 +477,9 @@ class AppState extends ChangeNotifier {
   Future<void> refreshFavorites() async {
     try {
       favoriteBags = await bagRepository.favorites();
+      // Abonelikler favori listesini izler: yeni favori eklendiğinde o
+      // işletmenin paket yayınlarını canlı almaya başlarız.
+      _syncStoreSubscriptions();
     } on ApiException {
       // Favoriler ikincil veri; hatası ana akışı bozmamalı.
     }
@@ -349,6 +563,10 @@ class AppState extends ChangeNotifier {
 
   Future<Result<PickupNonce>> requestPickupNonce(String orderId) =>
       _guard(() => orderRepository.requestPickupNonce(orderId));
+
+  /// Arkadaşa teslim bağlantısı üretir.
+  Future<Result<SharedPickup>> sharePickup(String orderId) =>
+      _guard(() => orderRepository.sharePickup(orderId));
 
   Future<Result<AppOrder>> completePickup(AppOrder order, String nonce) async {
     return _guard(() async {
@@ -572,6 +790,14 @@ class AppState extends ChangeNotifier {
       // Sayı gösterilmezse ekran yine çalışır.
       return null;
     }
+  }
+
+  @override
+  void dispose() {
+    _realtimeSubscription?.cancel();
+    _pushTokenSubscription?.cancel();
+    realtime?.dispose();
+    super.dispose();
   }
 
   /// İstisnayı [Result]'a çevirir; ekranlar `try/catch` yazmak zorunda kalmaz.

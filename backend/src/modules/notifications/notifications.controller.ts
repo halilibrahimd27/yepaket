@@ -1,5 +1,6 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { Transform } from 'class-transformer';
 import { IsEmail, IsEnum, IsIn, IsOptional, IsString, IsUUID, Length } from 'class-validator';
 import { CurrentUser, Public } from '../../common/decorators/auth.decorators';
@@ -164,11 +165,18 @@ export class ImpactController {
 export class SupportController {
   constructor(private readonly support: SupportService) {}
 
+  /**
+   * Hız sınırı zorunlu: bu uç giriş gerektirmiyor ve saldırganın belirlediği
+   * adrese onay e-postası gönderiyor. Sınırsız bırakılırsa bir e-posta
+   * bombardımanı aracına dönüşür ve gönderen alan adımızın itibarını
+   * (deliverability) yakar.
+   */
   @Post('tickets')
   @Public()
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
   @ApiOperation({
     summary: 'Destek talebi oluşturur',
-    description: 'Giriş yapmamış kullanıcı da talep açabilir.',
+    description: 'Giriş yapmamış kullanıcı da talep açabilir. Dakikada 3 istekle sınırlıdır.',
   })
   create(@Body() dto: CreateSupportTicketDto, @CurrentUser('id') userId?: string) {
     return this.support.create(dto, userId);
@@ -201,6 +209,8 @@ export class WaitlistController {
 
   @Post()
   @Public()
+  // Aynı gerekçe: kimlik gerektirmeyen yazma ucu sınırsız olmamalı.
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({ summary: 'Bekleme listesine katılır' })
   join(@Body() dto: JoinWaitlistDto, @CurrentUser('id') userId?: string) {
     return this.waitlist.join(dto, userId);

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
+import '../../../core/network/api_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/models.dart';
 import '../../../data/state/app_state.dart';
@@ -274,18 +276,14 @@ class ProfilePage extends StatelessWidget {
                 icon: Icons.person_add_alt_1_rounded,
                 title: 'Arkadaşını davet et',
                 subtitle: 'Birlikte daha çok paket kurtarın',
-                onTap: () =>
-                    _snack(context, 'Davet bağlantın panoya kopyalandı.'),
+                // Eskiden "panoya kopyalandı" diyip hiçbir şey yapmıyordu.
+                onTap: () => _invite(context),
               ),
             ],
           ),
         ),
       ),
     );
-  }
-
-  static void _snack(BuildContext context, String text) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 }
 
@@ -476,4 +474,16 @@ class _MenuTile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Uygulamayı paylaşır.
+Future<void> _invite(BuildContext context) async {
+  await SharePlus.instance.share(
+    ShareParams(
+      text:
+          'YePaket ile mahallendeki sürpriz paketleri üçte bir fiyatına '
+          'kurtarıyorum. Sen de dene: ${ApiConfig.webUrl}',
+      subject: 'YePaket',
+    ),
+  );
 }

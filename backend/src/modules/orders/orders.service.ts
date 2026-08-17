@@ -38,6 +38,14 @@ export interface OrderView {
  * kişi aynı anda ödeme yaparsa ne olur? Cevap uygulama katmanında değil,
  * veritabanında verilir — `SELECT ... FOR UPDATE` ile satır kilitlenir.
  */
+/**
+ * Bir kullanıcının aynı anda bekletebileceği ödeme sayısı.
+ *
+ * Rezervasyon stoğu kilitlediği için bu sayı doğrudan işletmenin satış
+ * kaybına dönüşür.
+ */
+const MAX_PENDING_RESERVATIONS = 3;
+
 @Injectable()
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
@@ -105,6 +113,27 @@ export class OrdersService {
   ): Promise<OrderView> {
     const reservationTtl =
       this.config.get('ORDER_RESERVATION_TTL_MINUTES', { infer: true }) * 60_000;
+
+    // Aynı anda bekleyen rezervasyon sayısı sınırlıdır.
+    //
+    // Hız sınırı dakikadaki istek sayısını kısıtlar ama biriken rezervasyonu
+    // engellemez: dakikada 10 sipariş açıp ödemeyi hiç tamamlamayan bir hesap,
+    // 15 dakika içinde 150 paketi satılamaz hâle getirebilirdi. Gerçek bir
+    // kullanıcının aynı anda ödemesi biten 3'ten fazla siparişi olmaz.
+    const pending = await this.prisma.order.count({
+      where: {
+        userId,
+        status: 'PAYMENT_PENDING',
+        reservationExpiresAt: { gt: new Date() },
+      },
+    });
+
+    if (pending >= MAX_PENDING_RESERVATIONS) {
+      throw AppError.unprocessable(
+        ErrorCode.TOO_MANY_PENDING_ORDERS,
+        'Ödemesi tamamlanmamış siparişlerin var. Önce onları tamamla veya iptal et.',
+      );
+    }
 
     const { order, bag } = await this.prisma.$transaction(async (tx) => {
       // Satır kilidi: aynı paketi hedefleyen diğer transaction'lar burada

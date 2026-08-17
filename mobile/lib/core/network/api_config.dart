@@ -12,6 +12,12 @@ abstract final class ApiConfig {
     defaultValue: productionBaseUrl,
   );
 
+  /// Gerçek zamanlı olay kanalının adresi (Socket.IO namespace).
+  ///
+  /// `baseUrl` sonundaki `/v1` zaten namespace'in bir parçası olduğu için
+  /// doğrudan kullanılır: sunucu tarafında namespace `/v1/realtime`.
+  static String get realtimeUrl => '$baseUrl/realtime';
+
   /// Web uygulamasının kök adresi; yasal metinler ve paylaşım bağlantıları
   /// buradan gider.
   static const webUrl = String.fromEnvironment(

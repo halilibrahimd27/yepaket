@@ -24,6 +24,21 @@ describe('Sipariş (e2e)', () => {
   const createdBagIds: string[] = [];
 
   const api = () => request(app.getHttpServer() as App);
+
+  /**
+   * Her testten sonra ödemesi tamamlanmamış rezervasyonları temizler.
+   *
+   * Sunucu bir kullanıcının aynı anda 3'ten fazla bekleyen rezervasyonuna
+   * izin vermiyor (stok kilitleme suistimalini engellemek için). Testler
+   * arka arkaya sipariş açtığı için bu sınıra takılırlardı; her test kendi
+   * temiz durumundan başlamalı.
+   */
+  afterEach(async () => {
+    await prisma.order.updateMany({
+      where: { userId, status: 'PAYMENT_PENDING' },
+      data: { reservationExpiresAt: new Date(Date.now() - 1000) },
+    });
+  });
   const key = () => `e2e-${Math.random().toString(36).slice(2)}`;
 
   /** Teslim aralığı istenen zamanda olan taze bir paket üretir. */

@@ -10,7 +10,13 @@ import { LandingPage } from "./components/LandingPage";
  */
 export const revalidate = 60;
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ hata?: string }>;
+}) {
+  const { hata } = await searchParams;
+
   const [bags, impact] = await Promise.all([
     apiRequestSafe<Bag[]>("/bags/nearby?limit=8&sort=relevance", [], {
       revalidateSeconds: 60,
@@ -20,5 +26,16 @@ export default async function Home() {
     }),
   ]);
 
-  return <LandingPage bags={bags.data} impact={impact.data} apiUnavailable={bags.failed} />;
+  return (
+    <LandingPage
+      bags={bags.data}
+      impact={impact.data}
+      apiUnavailable={bags.failed}
+      // Panele yetkisiz erişim denemesinden gelen kullanıcıya neden burada
+      // olduğunu söyler; eskiden bu parametre hiçbir yerde okunmuyordu.
+      redirectNotice={
+        hata === "yetkisiz" ? "Bu alana erişim yetkin yok." : undefined
+      }
+    />
+  );
 }

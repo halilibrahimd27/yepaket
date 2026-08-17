@@ -123,7 +123,18 @@ services:
       SMTP_PORT: ${SMTP_PORT}
       SMTP_USER: ${SMTP_USER}
       SMTP_PASSWORD: ${SMTP_PASSWORD}
+      # 465 numaralı port için `true` olmalı; 587 (STARTTLS) için `false`.
+      # Örnek dosyada tanımlıydı ama konteynere geçirilmiyordu: uygulama
+      # her zaman şemadaki varsayılanı kullanıyordu.
+      SMTP_SECURE: ${SMTP_SECURE:-false}
       MAIL_FROM: ${MAIL_FROM}
+
+      FREE_CANCEL_WINDOW_MINUTES: ${FREE_CANCEL_WINDOW_MINUTES:-120}
+      ORDER_RESERVATION_TTL_MINUTES: ${ORDER_RESERVATION_TTL_MINUTES:-15}
+      PASSWORD_RESET_TTL_MINUTES: ${PASSWORD_RESET_TTL_MINUTES:-30}
+      DEFAULT_COMMISSION_BPS: ${DEFAULT_COMMISSION_BPS:-1200}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-120}
+      ORDER_RATE_LIMIT_PER_MINUTE: ${ORDER_RATE_LIMIT_PER_MINUTE:-10}
 
       GOOGLE_CLIENT_IDS: ${GOOGLE_CLIENT_IDS}
       APPLE_CLIENT_IDS: ${APPLE_CLIENT_IDS}

@@ -23,6 +23,8 @@ abstract final class DummyData {
   static List<SurpriseBag> get bags => [
     SurpriseBag(
       id: 'bag_istanbul_firin_01',
+      latitude: 40.9877,
+      longitude: 29.0277,
       storeId: 'store_moda_firini',
       store: 'Moda Fırını',
       title: 'Günün Fırın Paketi',
@@ -42,6 +44,8 @@ abstract final class DummyData {
     ),
     SurpriseBag(
       id: 'bag_besiktas_market_02',
+      latitude: 41.043,
+      longitude: 29.0055,
       storeId: 'store_mahalle_manavi',
       store: 'Mahalle Manavı',
       title: 'Taze Sebze & Meyve',
@@ -61,6 +65,8 @@ abstract final class DummyData {
     ),
     SurpriseBag(
       id: 'bag_karakoy_cafe_03',
+      latitude: 41.0255,
+      longitude: 28.977,
       storeId: 'store_kok_kahve',
       store: 'Kök Kahve',
       title: 'Kahve Yanı Sürprizi',
@@ -82,6 +88,8 @@ abstract final class DummyData {
     ),
     SurpriseBag(
       id: 'bag_bakirkoy_patisserie_04',
+      latitude: 40.978,
+      longitude: 28.872,
       storeId: 'store_mimoza',
       store: 'Mimoza Pastanesi',
       title: 'Tatlı Kurtarma Paketi',

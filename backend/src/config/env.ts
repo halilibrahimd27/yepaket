@@ -109,6 +109,13 @@ export const envSchema = z
 
     /** Dakika başına IP başına istek üst sınırı. */
     RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(120),
+    /**
+     * Sipariş oluşturma için ayrı ve daha katı sınır.
+     *
+     * Her istek stoğu 15 dakika rezerve edip ödeme sağlayıcısına çağrı
+     * yapıyor; genel sınır bu uç için fazla gevşek kalır.
+     */
+    ORDER_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(10),
   })
   .superRefine((env, ctx) => {
     if (env.PAYMENT_PROVIDER === 'iyzico') {

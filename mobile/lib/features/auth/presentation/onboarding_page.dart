@@ -46,7 +46,13 @@ class _OnboardingPageState extends State<OnboardingPage> {
       setState(() => page++);
       return;
     }
-    await context.read<AppState>().completeOnboarding();
+    final state = context.read<AppState>();
+    await state.completeOnboarding();
+
+    // Konum izni onboarding'in sonunda isteniyor: uygulama daha açılmadan
+    // sistem penceresiyle karşılaşan kullanıcı, ne için istendiğini
+    // bilmediği için genellikle reddeder.
+    await state.requestLocation();
     if (mounted) context.go('/login');
   }
 
@@ -105,7 +111,13 @@ class _OnboardingPageState extends State<OnboardingPage> {
                       ),
                       TextButton(
                         onPressed: () async {
-                          await context.read<AppState>().completeOnboarding();
+                          final state = context.read<AppState>();
+                          await state.completeOnboarding();
+
+                          // Konum izni onboarding'in sonunda isteniyor: uygulama daha açılmadan
+                          // sistem penceresiyle karşılaşan kullanıcı, ne için istendiğini
+                          // bilmediği için genellikle reddeder.
+                          await state.requestLocation();
                           if (context.mounted) context.go('/login');
                         },
                         child: const Text(

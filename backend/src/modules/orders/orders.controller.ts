@@ -12,6 +12,7 @@ import {
   Req,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { CurrentUser, Public } from '../../common/decorators/auth.decorators';
 import { SkipEnvelope } from '../../common/interceptors/response-envelope.interceptor';
@@ -19,6 +20,20 @@ import { IdempotencyService } from './idempotency.service';
 import { OrdersService } from './orders.service';
 import { CancelOrderDto, ConfirmPickupDto, CreateOrderDto, RateOrderDto } from './dto/orders.dto';
 import type { OrderStatus } from '../../generated/prisma/client';
+
+/**
+ * Sipariş oluşturma hız sınırı.
+ *
+ * `@Throttle` sınıf tanımlanırken değerlendiği için ConfigService'ten
+ * okunamaz; `process.env` doğrudan okunur. Değişken yine de `env.ts`
+ * şemasında tanımlıdır, böylece doğrulanır ve dokümanda görünür.
+ */
+const ORDER_THROTTLE = {
+  default: {
+    limit: Number(process.env.ORDER_RATE_LIMIT_PER_MINUTE ?? 10),
+    ttl: 60_000,
+  },
+};
 
 @ApiTags('orders')
 @Controller('orders')
@@ -28,8 +43,17 @@ export class OrdersController {
     private readonly idempotency: IdempotencyService,
   ) {}
 
+  /**
+   * Hız sınırı: her istek stoğu rezerve eder ve dış ödeme sağlayıcısına
+   * çağrı yapar. Sınırsız bırakıldığında tek bir hesap, paketleri sırayla
+   * rezerve edip ödemeyi hiç tamamlamayarak bir işletmenin tüm stoğunu
+   * 15 dakika boyunca satılamaz hâle getirebilirdi.
+   *
+   * Dakikada 10, gerçek kullanıcı için fazlasıyla yeterli.
+   */
   @Post()
   @ApiBearerAuth('access-token')
+  @Throttle(ORDER_THROTTLE)
   @ApiHeader({
     name: 'Idempotency-Key',
     required: true,

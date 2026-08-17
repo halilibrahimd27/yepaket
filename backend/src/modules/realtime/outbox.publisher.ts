@@ -5,6 +5,17 @@ import { RedisService } from '../../redis/redis.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
 /** Redis pub/sub kanalı; WebSocket ağ geçidi bunu dinler. */
+/** Bir olay bu kadar denemeden sonra elle incelenmeli. */
+const MAX_ATTEMPTS = 5;
+
+/**
+ * Başarısız olay bu süre geçmeden yeniden denenmez.
+ *
+ * Anında yeniden denemek, geçici olmayan bir hatada (ör. Redis kapalı)
+ * döngüye girip günlükleri doldururdu.
+ */
+const RETRY_AFTER_MS = 5 * 60 * 1000;
+
 export const REALTIME_CHANNEL = 'yepaket:events';
 
 interface OrderEventPayload {
@@ -70,7 +81,20 @@ export class OutboxPublisher {
       });
 
       for (const event of events) {
-        await this.dispatch(event.type, event.payload);
+        try {
+          await this.dispatch(event.type, event.payload);
+        } catch (error) {
+          // Hata kaydı tutulur; `retryFailed` bu işareti görüp olayı
+          // yeniden kuyruğa alır. Kaydetmezsek olay "yayınlandı" görünür
+          // ve sessizce kaybolur.
+          await this.prisma.outboxEvent.update({
+            where: { id: event.id },
+            data: { lastError: (error as Error).message.slice(0, 500) },
+          });
+          this.logger.error(
+            `Olay yayınlanamadı (${event.type}): ${(error as Error).message}`,
+          );
+        }
       }
 
       if (events.length > 0) {
@@ -110,17 +134,50 @@ export class OutboxPublisher {
     }
   }
 
-  /** Yayınlanamamış eski olayları tekrar dener. */
+  /**
+   * Takılmış olayları yeniden dener.
+   *
+   * Ana yayıncı `publishedAt`'i sorguyu okurken işaretler; yayın adımında bir
+   * hata olursa olay "yayınlandı" görünür ama kimseye ulaşmamıştır. Bu görev
+   * o kayıtları geri açar.
+   *
+   * Eskiden bu görev yalnızca sayıp log yazıyordu — adı "retry" olmasına
+   * rağmen hiçbir şeyi yeniden denemiyordu ve doküman da yeniden denendiğini
+   * söylüyordu.
+   */
   @Cron(CronExpression.EVERY_10_MINUTES, { name: 'retry-outbox' })
   async retryFailed(): Promise<void> {
+    // 5 denemeden azını yeniden kuyruğa al. Eşiği aşanlar bir yapılandırma
+    // ya da veri sorununa işaret eder; sonsuz denemek yükü artırmaktan
+    // başka işe yaramaz.
+    const cutoff = new Date(Date.now() - RETRY_AFTER_MS);
+
+    const requeued = await this.prisma.outboxEvent.updateMany({
+      where: {
+        publishedAt: { not: null, lt: cutoff },
+        attempts: { gt: 0, lt: MAX_ATTEMPTS },
+        // Yalnızca yayın sırasında hata alanlar; başarılılarda `lastError`
+        // boştur.
+        lastError: { not: null },
+      },
+      data: { publishedAt: null },
+    });
+
+    if (requeued.count > 0) {
+      this.logger.warn(`${requeued.count} olay yeniden kuyruğa alındı`);
+      await this.publishPending();
+    }
+
     const stuck = await this.prisma.outboxEvent.count({
-      where: { publishedAt: null, attempts: { gte: 5 } },
+      where: { attempts: { gte: MAX_ATTEMPTS }, lastError: { not: null } },
     });
 
     if (stuck > 0) {
       // Elle müdahale gerekiyor: sessizce yutmak, kullanıcının bildirim
       // alamamasına ve kimsenin fark etmemesine yol açardı.
-      this.logger.error(`${stuck} olay 5 denemeden sonra yayınlanamadı`);
+      this.logger.error(
+        `${stuck} olay ${MAX_ATTEMPTS} denemeden sonra yayınlanamadı — inceleme gerekiyor`,
+      );
     }
   }
 }

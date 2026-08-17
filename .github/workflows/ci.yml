@@ -90,6 +90,8 @@ jobs:
           # Hız sınırı testleri bloklamasın; sınırın kendisi ayrıca test edilir.
           # Şifre sıfırlama uçlarının kendi sınırları bundan bağımsızdır.
           RATE_LIMIT_PER_MINUTE: 1000
+          # Sipariş ucunun kendi sınırı; testler arka arkaya sipariş açıyor.
+          ORDER_RATE_LIMIT_PER_MINUTE: 1000
 
       - name: OpenAPI şeması güncel mi?
         if: steps.exists.outputs.found == 'true'

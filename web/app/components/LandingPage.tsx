@@ -91,10 +91,13 @@ const CATEGORY_LABELS: Record<string, string> = {
 export function LandingPage({
   bags,
   impact,
+  redirectNotice,
   apiUnavailable,
 }: {
   bags: Bag[];
   impact: CommunityImpact | null;
+  /** Yönlendirme sonrası gösterilecek kısa bilgi (ör. yetkisiz erişim). */
+  redirectNotice?: string;
   apiUnavailable: boolean;
 }) {
   const root = useRef<HTMLDivElement>(null);
@@ -103,7 +106,9 @@ export function LandingPage({
   const [favorites, setFavorites] = useState<string[]>([]);
   const [selectedBag, setSelectedBag] = useState<Bag | null>(null);
   const [openFaq, setOpenFaq] = useState(0);
-  const [notice, setNotice] = useState("");
+  // Sunucudan gelen yönlendirme bilgisi ilk değer olur; kullanıcı kapatınca
+  // veya başka bir işlem bildirimi geldiğinde değişir.
+  const [notice, setNotice] = useState(redirectNotice ?? "");
   const [activeStep, setActiveStep] = useState(0);
 
   const filteredBags = useMemo(() => {
@@ -252,11 +257,23 @@ export function LandingPage({
                 </a>
               </div>
               <div className="mt-6"><StoreLinks compact /></div>
+              {/* Sabit "24K+ / 320+ / 4.8" değerleri yazılıydı; gerçek
+                  topluluk verisi zaten bu bileşene geliyordu. Veri henüz
+                  yüklenmediyse "—" gösterilir, uydurma sayı değil. */}
               <div className="mt-11 grid max-w-lg grid-cols-3 gap-3">
                 {[
-                  ["24K+", "kurtarılan paket"],
-                  ["320+", "yerel işletme"],
-                  ["4.8/5", "topluluk puanı"],
+                  [
+                    impact ? `${impact.saved_bags.toLocaleString("tr-TR")}` : "—",
+                    "kurtarılan paket",
+                  ],
+                  [
+                    impact ? `${impact.active_stores.toLocaleString("tr-TR")}` : "—",
+                    "yerel işletme",
+                  ],
+                  [
+                    impact ? `${impact.co2e_kg.toLocaleString("tr-TR")} kg` : "—",
+                    "CO₂e önlendi",
+                  ],
                 ].map(([value, label]) => (
                   <div key={label} className="border-l border-[var(--forest)]/15 pl-4 first:border-0 first:pl-0">
                     <strong className="block text-xl font-black text-[var(--forest)] sm:text-2xl">{value}</strong>

@@ -188,6 +188,30 @@ export interface PartnerDashboard {
   lifetime: { rescued_bags: number; rating: { overall: number; count: number } };
 }
 
+/**
+ * İşletmenin tam profili (`GET /partner/store`).
+ *
+ * Panel özeti (`/partner/dashboard`) yalnızca gösterim için gereken birkaç
+ * alanı taşıyor; düzenleme formu telefon, açıklama ve çalışma saatlerine de
+ * ihtiyaç duyduğu için bu uç ayrıca çağrılır.
+ */
+export interface StoreProfile {
+  id: string;
+  name: string;
+  slug: string;
+  category: string;
+  description: string | null;
+  logo_url: string | null;
+  cover_url: string | null;
+  address: string;
+  location: { lat: number; lng: number };
+  phone: string | null;
+  opening_time: string | null;
+  closing_time: string | null;
+  rating: { overall: number; count: number };
+  rescued_bag_count: number;
+}
+
 export interface PayoutSummary {
   period: { start: string; end: string; label: string };
   gross: Money;
@@ -222,16 +246,33 @@ export interface SessionUser {
 // Biçimlendirme yardımcıları
 // ---------------------------------------------------------------------------
 
-const turkishLira = new Intl.NumberFormat("tr-TR", {
+const wholeLira = new Intl.NumberFormat("tr-TR", {
   style: "currency",
   currency: "TRY",
   maximumFractionDigits: 0,
 });
 
-/** Kuruşu Türkçe para biçiminde gösterir. */
+const liraWithKurus = new Intl.NumberFormat("tr-TR", {
+  style: "currency",
+  currency: "TRY",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/**
+ * Kuruşu Türkçe para biçiminde gösterir.
+ *
+ * Tam liraysa kuruş gösterilmez ("139 ₺"), değilse gösterilir ("139,50 ₺").
+ * Önceden her tutar tam liraya yuvarlanıyordu: 139,50 ₺ olan bir paket
+ * web'de "140 ₺", mobilde "139,50 ₺" görünüyordu. Aynı ürünün iki yerde
+ * farklı fiyat göstermesi güven sorunu ve şikâyet üretir.
+ *
+ * Kural mobildeki `Formats.money` ile birebir aynıdır.
+ */
 export function formatMoney(money: Money | number): string {
   const minor = typeof money === "number" ? money : money.amount_minor;
-  return turkishLira.format(minor / 100);
+  const value = minor / 100;
+  return minor % 100 === 0 ? wholeLira.format(value) : liraWithKurus.format(value);
 }
 
 const timeFormatter = new Intl.DateTimeFormat("tr-TR", {

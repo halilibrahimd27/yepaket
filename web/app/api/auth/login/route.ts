@@ -1,5 +1,5 @@
 import { apiRequest, ApiError } from "@/lib/api";
-import { storeSession } from "@/lib/session";
+import { getDeviceId, storeSession } from "@/lib/session";
 
 /**
  * Giriş vekili (proxy).
@@ -38,7 +38,9 @@ export async function POST(request: Request) {
         email: payload.email,
         password: payload.password,
         device: {
-          deviceId: `web-${crypto.randomUUID()}`,
+          // Kalıcı kimlik: her girişte yenisini üretmek sunucuda gereksiz
+          // oturum kaydı biriktiriyordu.
+          deviceId: await getDeviceId(),
           platform: "WEB",
         },
       },

@@ -206,6 +206,53 @@ export class AuthService {
             'Bu e-posta adresiyle bir hesap var. Şifrenizle giriş yapıp sosyal hesabınızı ayarlardan bağlayabilirsiniz.',
           );
         }
+
+        // Hesap ön-ele geçirme (pre-hijacking) savunması.
+        //
+        // Kayıt sırasında e-posta doğrulaması yapmıyoruz. Bu, bir saldırganın
+        // başkasının adresiyle önceden şifreli hesap açmasına izin verir.
+        // Gerçek sahip sonradan sosyal girişle geldiğinde sağlayıcı adresi
+        // doğrulamış olur ve hesabı ona bağlarız — ama saldırganın şifresi
+        // hâlâ çalışıyorsa hesaba ikisi de erişebilir.
+        //
+        // Bu yüzden bağlama anında var olan şifre GEÇERSİZ KILINIR ve tüm
+        // oturumlar kapatılır. Sağlayıcı adresin sahibini doğruladı; o andan
+        // sonra tek meşru giriş yolu sosyal hesaptır. Şifreyle girmek isteyen
+        // gerçek sahip "şifremi unuttum" akışını kullanır ve bu akış da aynı
+        // adrese e-posta gönderdiği için yine doğrulanmış olur.
+        if (byEmail.passwordHash) {
+          const sessions = await this.prisma.session.findMany({
+            where: { userId: byEmail.id, revokedAt: null },
+            select: { id: true },
+          });
+
+          await this.prisma.$transaction([
+            this.prisma.user.update({
+              where: { id: byEmail.id },
+              data: { passwordHash: null, emailVerifiedAt: new Date() },
+            }),
+            this.prisma.session.updateMany({
+              where: { userId: byEmail.id, revokedAt: null },
+              data: {
+                revokedAt: new Date(),
+                revokeReason: 'oauth_link_password_cleared',
+              },
+            }),
+          ]);
+
+          await this.revocations.revokeMany(sessions.map((session) => session.id));
+
+          this.logger.warn(
+            `Sosyal hesap bağlandı, mevcut şifre geçersiz kılındı: ${byEmail.id} ` +
+              `(${sessions.length} oturum kapatıldı)`,
+          );
+        } else if (!byEmail.emailVerifiedAt) {
+          await this.prisma.user.update({
+            where: { id: byEmail.id },
+            data: { emailVerifiedAt: new Date() },
+          });
+        }
+
         user = byEmail;
       } else {
         user = await this.prisma.user.create({

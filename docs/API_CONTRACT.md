@@ -85,7 +85,8 @@ kurala uyar — sunucu yerel saat göndermez.
 | `REFRESH_TOKEN_REUSED` | 401 | Kullanılmış yenileme jetonu sunuldu (hırsızlık sinyali) |
 | `FORBIDDEN` | 403 | Yetki yok |
 | `NOT_FOUND` | 404 | Kayıt yok veya erişim hakkı yok |
-| `IDEMPOTENCY_CONFLICT` | 409 | Aynı anahtar farklı gövdeyle kullanıldı |
+| `IDEMPOTENCY_KEY_REQUIRED` | 400 | `Idempotency-Key` başlığı eksik |
+| `IDEMPOTENCY_KEY_CONFLICT` | 409 | Aynı anahtar farklı gövdeyle kullanıldı |
 | `INSUFFICIENT_STOCK` | 422 | Stok yetersiz |
 | `RATE_LIMITED` | 429 | Hız sınırı aşıldı |
 
@@ -101,9 +102,10 @@ Authorization: Bearer <access_token>
 - **Erişim jetonu:** JWT, 15 dakika. Yenilenmez, yeniden alınır.
 - **Yenileme jetonu:** opak rastgele veri, 60 gün, **her kullanımda döner**.
   Sunucuda yalnızca HMAC özeti saklanır.
-- Kullanılmış bir yenileme jetonu ikinci kez sunulursa o cihazın **tüm**
-  oturumları kapatılır (`REFRESH_TOKEN_REUSED`). Bu, çalınmış jetonun
-  sessizce kullanılmasını engeller.
+- Kullanılmış bir yenileme jetonu ikinci kez sunulursa kullanıcının **tüm
+  cihazlardaki** oturumları kapatılır (`REFRESH_TOKEN_REUSED`). Yalnızca o
+  cihazı kapatmak yeterli olmazdı: jetonu kimin çaldığı bilinmediği için
+  meşru oturum da şüphelidir.
 - Oturum iptal edildiğinde (çıkış, şifre değişimi/sıfırlaması) elde bulunan
   erişim jetonu **anında** geçersizleşir — süresi dolmasını beklemez.
 
@@ -118,7 +120,7 @@ Idempotency-Key: 7f3c9e21-...
 
 - Aynı anahtar + aynı gövde → **ilk isteğin yanıtı** döner, ikinci sipariş
   oluşmaz.
-- Aynı anahtar + farklı gövde → `409 IDEMPOTENCY_CONFLICT`.
+- Aynı anahtar + farklı gövde → `409 IDEMPOTENCY_KEY_CONFLICT`.
 - Anahtar **kullanıcı eylemi başına bir kez** üretilmeli ve tekrar
   denemelerde aynı kalmalıdır. Her istekte yeni anahtar üretmek korumayı
   tamamen etkisiz kılar.
@@ -133,13 +135,18 @@ Idempotency-Key: 7f3c9e21-...
 | `POST /v1/auth/login`, `/register`, `/oauth/*` | 8 / dakika |
 | `POST /v1/auth/password-reset/request` | 3 / dakika |
 | `POST /v1/auth/password-reset/confirm` | 10 / dakika |
+| `POST /v1/support/tickets` | 3 / dakika |
+| `POST /v1/waitlist` | 5 / dakika |
 
 Aşıldığında `429` ve `Retry-After` başlığı döner.
 
 ### 1.9 Sayfalama
 
-Liste uçları `page` (1'den başlar) ve `per_page` (varsayılan 20, en fazla 100)
+Liste uçları `page` (1'den başlar) ve `limit` (varsayılan 20, **en fazla 50**)
 sorgu parametrelerini kabul eder. Toplam sayı `meta.total` içinde döner.
+
+Tanımsız bir sorgu parametresi göndermek `400` döndürür (`forbidNonWhitelisted`):
+`per_page` gibi yanlış adlandırılmış bir alan sessizce yok sayılmaz.
 
 ---
 
@@ -401,8 +408,11 @@ Yönlendirme yüke göre yapılır: `userId` varsa yalnızca o kullanıcıya,
 Olaylar **outbox deseni** ile yayınlanır: iş transaction'ı içinde
 `outbox_events` tablosuna yazılır, ayrı bir süreç `FOR UPDATE SKIP LOCKED`
 ile okuyup Redis pub/sub'a taşır. Böylece "veritabanı yazıldı ama olay
-yayınlanmadı" durumu oluşmaz. Yayınlanamayan olaylar 10 dakikada bir
-yeniden denenir.
+yayınlanmadı" durumu oluşmaz.
+
+Yayın sırasında hata alan olaylar `last_error` ile işaretlenir; 10 dakikada
+bir çalışan bakım görevi bunları (5 denemeye kadar) yeniden kuyruğa alır.
+Eşiği aşanlar için hata kaydı düşülür ve elle inceleme beklenir.
 
 `order.status.updated` ve `bag.available` ayrıca **kalıcı bildirim** üretir:
 o anda bağlı olmayan kullanıcı bildirimi sonradan görebilmelidir.

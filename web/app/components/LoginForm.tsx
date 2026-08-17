@@ -110,7 +110,7 @@ export function LoginForm({ returnTo }: { returnTo: string }) {
                   name="email"
                   type="email"
                   autoComplete="email"
-                  defaultValue="demo@modafirini.com"
+                  placeholder="ornek@isletmeniz.com"
                   className="form-input pl-12"
                 />
               </div>
@@ -129,7 +129,6 @@ export function LoginForm({ returnTo }: { returnTo: string }) {
                   name="password"
                   type="password"
                   autoComplete="current-password"
-                  defaultValue="demo1234"
                   className="form-input pl-12"
                 />
               </div>
@@ -140,7 +139,7 @@ export function LoginForm({ returnTo }: { returnTo: string }) {
                 <input type="checkbox" name="remember" defaultChecked className="accent-[var(--forest)]" />
                 Beni hatırla
               </label>
-              <Link href="/destek?konu=hesap" className="font-black text-[var(--forest)] hover:underline">
+              <Link href="/sifremi-unuttum" className="font-black text-[var(--forest)] hover:underline">
                 Şifremi unuttum
               </Link>
             </div>

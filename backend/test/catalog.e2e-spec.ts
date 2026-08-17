@@ -64,6 +64,11 @@ describe('Katalog (e2e)', () => {
   const api = () => request(app.getHttpServer() as App);
 
   it('konum verilince mesafeyi hesaplar ve yakından uzağa sıralar', async () => {
+    // Kendi fikstürlerini kurar: tohum verisinin teslim aralıkları zamanla
+    // geçmişte kalıyor ve test o zaman sessizce tek sonuçla karşılaşıyordu.
+    await makeBagAt('moda-firini', 'Mesafe Sıralama Yakın');
+    await makeBagAt('mimoza-pastanesi', 'Mesafe Sıralama Uzak');
+
     const response = await api()
       .get('/v1/bags/nearby')
       .query({ ...KADIKOY, radiusKm: 30, sort: 'distance' })

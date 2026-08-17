@@ -21,7 +21,6 @@ class CheckoutPage extends StatefulWidget {
 
 class _CheckoutPageState extends State<CheckoutPage> {
   int quantity = 1;
-  int payment = 0;
   bool loading = false;
 
   /// Idempotency anahtarı **ekran açılışında bir kez** üretilir.
@@ -194,37 +193,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 ],
               ),
               const SizedBox(height: 26),
-              Text(
-                'Ödeme yöntemi',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
+              Text('Ödeme', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 11),
-              _PaymentTile(
-                index: 0,
-                selected: payment,
-                icon: Icons.credit_card_rounded,
-                title: '•••• 4242',
-                subtitle: 'Visa · Varsayılan',
-                onTap: () => setState(() => payment = 0),
-              ),
-              const SizedBox(height: 9),
-              _PaymentTile(
-                index: 1,
-                selected: payment,
-                icon: Icons.apple,
-                title: 'Apple Pay',
-                subtitle: 'Hızlı ve güvenli ödeme',
-                onTap: () => setState(() => payment = 1),
-              ),
-              const SizedBox(height: 9),
-              _PaymentTile(
-                index: 2,
-                selected: payment,
-                icon: Icons.account_balance_wallet_outlined,
-                title: 'Yeni kart ekle',
-                subtitle: 'Ödeme sağlayıcısında güvenle saklanır',
-                onTap: () => setState(() => payment = 2),
-              ),
+              // Kayıtlı kart ve cüzdan desteği YOK: her ödeme, sağlayıcının
+              // 3D Secure sayfasında alınıyor ve kart bilgisi hiçbir zaman
+              // uygulamaya veya sunucumuza ulaşmıyor.
+              //
+              // Eskiden burada uydurma bir kart ("•••• 4242 · Visa ·
+              // Varsayılan") ve Apple Pay seçeneği vardı. Seçim hiçbir yere
+              // gönderilmiyordu; kullanıcı kayıtlı kartıyla ödediğini sanıp
+              // yine kart giriş sayfasına düşüyordu. Ayarlar ekranında aynı
+              // sahte kart zaten kaldırılmıştı.
+              const _PaymentNotice(),
               const SizedBox(height: 26),
               Container(
                 padding: const EdgeInsets.all(20),
@@ -292,82 +272,65 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 }
 
-class _PaymentTile extends StatelessWidget {
-  const _PaymentTile({
-    required this.index,
-    required this.selected,
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-  final int index;
-  final int selected;
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
+/// Ödemenin nerede alındığını açıklayan bilgi kartı.
+///
+/// Kullanıcıya "kartım nerede?" sorusunu sordurmamak için: uygulamada kart
+/// listesi olmamasının bir eksiklik değil, bilinçli bir güvenlik kararı
+/// olduğunu söyler.
+class _PaymentNotice extends StatelessWidget {
+  const _PaymentNotice();
 
   @override
   Widget build(BuildContext context) {
-    final active = index == selected;
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(21),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(21),
-        child: Container(
-          padding: const EdgeInsets.all(15),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(21),
-            border: Border.all(
-              color: active ? AppColors.forest : AppColors.line,
-              width: active ? 1.5 : 1,
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: const BoxDecoration(
+              color: AppColors.limeSoft,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.lock_outline_rounded,
+              color: AppColors.forest,
+              size: 20,
             ),
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: const BoxDecoration(
-                  color: AppColors.limeSoft,
-                  shape: BoxShape.circle,
+          const SizedBox(width: 13),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Güvenli ödeme sayfası',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.forest,
+                  ),
                 ),
-                child: Icon(icon, color: AppColors.forest, size: 21),
-              ),
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.forest,
-                      ),
-                    ),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: AppColors.muted,
-                      ),
-                    ),
-                  ],
+                SizedBox(height: 4),
+                Text(
+                  'Onayladığında bankanın 3D Secure sayfasına yönlendirilirsin. '
+                  'Kart bilgin uygulamada saklanmaz.',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    height: 1.5,
+                    color: AppColors.muted,
+                  ),
                 ),
-              ),
-              Icon(
-                active
-                    ? Icons.radio_button_checked_rounded
-                    : Icons.radio_button_off_rounded,
-                color: active ? AppColors.forest : AppColors.muted,
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

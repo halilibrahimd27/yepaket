@@ -7,6 +7,23 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Firebase yapılandırması varsa push bildirimi etkinleşir.
+//
+// Koşullu uygulama bilinçlidir: google-services eklentisi dosya olmadan
+// derlemeyi durdurur. Müşteri Firebase hesabını açana kadar geliştirme ve
+// test derlemelerinin çalışmaya devam etmesi gerekiyor. Dosya eklendiği anda
+// eklenti kendiliğinden devreye girer, başka bir değişiklik gerekmez.
+val hasFirebaseConfig = file("google-services.json").exists()
+
+if (hasFirebaseConfig) {
+    apply(plugin = "com.google.gms.google-services")
+} else {
+    logger.lifecycle(
+        "Bilgi: android/app/google-services.json yok — push bildirimi devre dışı. " +
+            "Kurulum için docs/TESLIM.md bölüm 2.2'ye bakın."
+    )
+}
+
 // İmzalama bilgileri depoya girmez: `android/key.properties` dosyası
 // .gitignore altındadır ve yalnızca yayın yapan makinede bulunur.
 // Dosya yoksa yayın derlemesi hata verir — imzasız bir AAB'nin sessizce

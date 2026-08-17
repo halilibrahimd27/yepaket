@@ -65,6 +65,10 @@ mobile/android/app/debug/
 mobile/android/app/profile/
 mobile/android/app/release/
 mobile/android/key.properties
+
+# Firebase istemci yapılandırması — örnek dosyalar versiyonlanır.
+mobile/android/app/google-services.json
+mobile/ios/Runner/GoogleService-Info.plist
 *.jks
 *.keystore
 !mobile/android/app/debug.keystore

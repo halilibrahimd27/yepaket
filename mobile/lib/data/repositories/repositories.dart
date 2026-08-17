@@ -369,6 +369,9 @@ abstract interface class OrderRepository {
   });
   Future<AppOrder> confirmPayment(String orderId);
   Future<PickupNonce> requestPickupNonce(String orderId);
+
+  /// Arkadaşa teslim bağlantısı üretir (asıl teslim kodu paylaşılmaz).
+  Future<SharedPickup> sharePickup(String orderId);
   Future<AppOrder> confirmPickup(AppOrder order, String nonce);
   Future<AppOrder> cancel(AppOrder order, {String? reason});
   Future<List<AppOrder>> list();
@@ -413,6 +416,12 @@ class DummyOrderRepository implements OrderRepository {
   Future<PickupNonce> requestPickupNonce(String orderId) async => PickupNonce(
     nonce: 'demo-nonce',
     expiresAt: DateTime.now().add(const Duration(minutes: 10)),
+  );
+
+  @override
+  Future<SharedPickup> sharePickup(String orderId) async => SharedPickup(
+    token: 'demo-paylasim-jetonu',
+    expiresAt: DateTime.now().add(const Duration(minutes: 30)),
   );
 
   @override
@@ -492,6 +501,12 @@ class RemoteOrderRepository implements OrderRepository {
           DateTime.tryParse(data['expires_at']?.toString() ?? '')?.toLocal() ??
           DateTime.now().add(const Duration(minutes: 10)),
     );
+  }
+
+  @override
+  Future<SharedPickup> sharePickup(String orderId) async {
+    final response = await _client.post(ApiEndpoints.sharePickup(orderId));
+    return SharedPickup.fromJson(_data(response));
   }
 
   @override
@@ -624,6 +639,11 @@ SurpriseBag _parseBag(Map<String, dynamic> json) {
     description:
         json['description'] as String? ?? 'Günlük ürünlerden sürpriz seçki.',
     address: store['address'] as String? ?? 'Adres işletmeden alınacak.',
+    // İşletme koordinatları haritada kullanılır; sunucu her paket yanıtında
+    // `store.location` içinde döndürüyor.
+    latitude: (_asMap(store['location'])['lat'] as num?)?.toDouble(),
+    longitude: (_asMap(store['location'])['lng'] as num?)?.toDouble(),
+    district: _districtOf(store['address'] as String?),
     isFavorite: json['is_favorite'] as bool? ?? false,
   );
 }
@@ -656,6 +676,21 @@ AppOrder _parseOrder(Map<String, dynamic> json, {SurpriseBag? fallbackBag}) {
       json['collected_at']?.toString() ?? '',
     )?.toLocal(),
   );
+}
+
+/// Adresin son iki parçasından "İlçe, İl" çıkarır.
+///
+/// Sunucu adresi "Cadde No, İlçe/İl" biçiminde tek dizgi olarak döndürüyor;
+/// ayrı bir ters coğrafi kodlama servisi çağırmadan konum etiketi üretmek
+/// için yeterli.
+String? _districtOf(String? address) {
+  if (address == null || address.isEmpty) return null;
+
+  final last = address.split(',').last.trim();
+  if (!last.contains('/')) return null;
+
+  final parts = last.split('/');
+  return '${parts.first.trim()}, ${parts.last.trim()}';
 }
 
 /// Sunucu durumları snake_case gelir: `pickup_pending` -> [OrderStatus.pickupPending].
@@ -863,7 +898,10 @@ class RemoteAccountRepository implements AccountRepository {
     await _client.post(
       ApiEndpoints.pushToken,
       data: {
-        'token': token,
+        // Sunucudaki DTO alanın adını `pushToken` olarak bekliyor ve
+        // tanımsız alan gönderimini reddediyor (forbidNonWhitelisted).
+        // `token` gönderildiğinde istek 400 dönüyordu.
+        'pushToken': token,
         'platform': ApiConfig.platform,
         'deviceId': await _client.deviceId(),
       },

@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import '../core/router/app_router.dart';
+import '../core/router/deep_links.dart';
 import '../core/theme/app_theme.dart';
 import '../data/state/app_state.dart';
 
@@ -17,6 +18,20 @@ class YePaketApp extends StatefulWidget {
 
 class _YePaketAppState extends State<YePaketApp> {
   late final router = createAppRouter(widget.appState);
+  late final _deepLinks = DeepLinkHandler(router);
+
+  @override
+  void initState() {
+    super.initState();
+    // Şifre sıfırlama e-postasındaki bağlantı buradan uygulamaya düşer.
+    _deepLinks.start();
+  }
+
+  @override
+  void dispose() {
+    _deepLinks.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

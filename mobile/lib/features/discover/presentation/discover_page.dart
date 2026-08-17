@@ -3,7 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/async_content.dart';
 import '../../../data/models/models.dart';
+import '../../../core/location/location_service.dart';
 import '../../../data/state/app_state.dart';
 import '../../home/presentation/main_shell_page.dart';
 import '../../../shared/widgets/bag_card.dart';
@@ -42,26 +44,46 @@ class DiscoverPage extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 11),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Konumun',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.muted,
+                      Expanded(
+                        // Sabit "Kadıköy, İstanbul" yazıyordu; artık gerçek
+                        // konumdan (ya da izin durumundan) geliyor.
+                        child: GestureDetector(
+                          onTap: () => _handleLocationTap(context, state),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Konumun',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.muted,
+                                ),
                               ),
-                            ),
-                            Text(
-                              'Kadıköy, İstanbul',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w900,
-                                color: AppColors.forest,
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      state.locationLabel,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                        color: AppColors.forest,
+                                      ),
+                                    ),
+                                  ),
+                                  if (!state.hasLocation) ...[
+                                    const SizedBox(width: 4),
+                                    const Icon(
+                                      Icons.my_location_rounded,
+                                      size: 14,
+                                      color: AppColors.forest,
+                                    ),
+                                  ],
+                                ],
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                       IconButton.filledTonal(
@@ -282,5 +304,66 @@ class _SectionHeader extends StatelessWidget {
         TextButton(onPressed: onTap, child: Text(action)),
       ],
     );
+  }
+}
+
+/// Konum çubuğuna dokunulduğunda ne olacağı.
+///
+/// Konum yoksa izin istenir. Kullanıcı daha önce kalıcı olarak reddettiyse
+/// izin penceresi bir daha açılmaz; bu durumda sistem ayarlarına yönlendirmek
+/// tek çözümdür — aksi hâlde dokunuş hiçbir şey yapmıyor gibi görünürdü.
+Future<void> _handleLocationTap(BuildContext context, AppState state) async {
+  if (state.hasLocation) {
+    // Konum zaten var; kullanıcı tazelemek istiyor olabilir.
+    await state.requestLocation();
+    return;
+  }
+
+  final outcome = await state.requestLocation();
+  if (!context.mounted) return;
+
+  switch (outcome) {
+    case LocationOutcome.granted:
+      return;
+
+    case LocationOutcome.deniedForever:
+      final open = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Konum izni kapalı'),
+          content: const Text(
+            'Yakınındaki paketleri ve mesafeleri gösterebilmek için konum '
+            'iznine ihtiyacımız var. Ayarlardan açabilirsin.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Şimdi değil'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Ayarları aç'),
+            ),
+          ],
+        ),
+      );
+      if (open == true) await state.openLocationSettings();
+
+    case LocationOutcome.serviceDisabled:
+      if (context.mounted) {
+        showInfoSnack(
+          context,
+          'Cihazının konum servisi kapalı. Açtıktan sonra tekrar dene.',
+        );
+      }
+
+    case LocationOutcome.denied:
+    case LocationOutcome.failed:
+      if (context.mounted) {
+        showInfoSnack(
+          context,
+          'Konum alınamadı. Şehir genelindeki paketleri gösteriyoruz.',
+        );
+      }
   }
 }

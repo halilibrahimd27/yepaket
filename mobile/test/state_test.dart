@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:yepaket/core/network/api_exception.dart';
+import 'package:yepaket/core/router/deep_links.dart';
 import 'package:yepaket/data/models/models.dart';
 import 'package:yepaket/data/repositories/repositories.dart';
 import 'package:yepaket/data/state/app_state.dart';
@@ -214,6 +215,41 @@ void main() {
       expect(impact.level.next, isNull);
       expect(impact.levelProgress, 1);
       expect(impact.bagsToNextLevel, 0);
+    });
+  });
+
+  group('Derin bağlantı çözümlemesi', () {
+    String? resolve(String url) => DeepLinkHandler.resolve(Uri.parse(url));
+
+    test('özel şemadaki şifre sıfırlama jetonu korunur', () {
+      // Şifre sıfırlama e-postasının mobil bağlantısı bu biçimde gelir;
+      // jeton kaybolursa kullanıcı hesabına geri dönemez.
+      expect(
+        resolve('yepaket://sifre-sifirla?token=abc123'),
+        '/sifre-sifirla?token=abc123',
+      );
+    });
+
+    test('https bağlantısı da aynı yola çözülür', () {
+      expect(
+        resolve('https://yepaket.app/sifre-sifirla?token=xyz'),
+        '/sifre-sifirla?token=xyz',
+      );
+    });
+
+    test('paket bağlantısı detay ekranına gider', () {
+      expect(resolve('yepaket://paket/bag_123'), '/bag/bag_123');
+      expect(resolve('https://yepaket.app/paket/bag_456'), '/bag/bag_456');
+    });
+
+    test('teslim bağlantısı aktif siparişe gider', () {
+      expect(resolve('yepaket://teslim?kod=jeton'), '/active-order');
+    });
+
+    test('tanınmayan bağlantı yok sayılır', () {
+      expect(resolve('yepaket://bilinmeyen'), isNull);
+      expect(resolve('https://yepaket.app/'), isNull);
+      expect(resolve('yepaket://paket'), isNull);
     });
   });
 

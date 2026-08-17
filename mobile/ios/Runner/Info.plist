@@ -49,6 +49,35 @@
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- Özel şema derin bağlantısı: yepaket://sifre-sifirla?token=...
+	     Şifre sıfırlama e-postası bu bağlantıyı içerir; kayıtlı olmadığında
+	     iOS bağlantıyı uygulamaya iletmez. -->
+	<!-- Konum izni açıklaması. App Store, bu metin olmadan uygulamayı
+	     reddeder; ayrıca kullanıcı izin penceresinde tam olarak bunu okur. -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Yakınındaki sürpriz paketleri gösterebilmek ve mesafeyi hesaplayabilmek için konumunu kullanıyoruz. Konumun kaydedilmez.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.yepaket.yepaket</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>yepaket</string>
+			</array>
+		</dict>
+	</array>
+	<!-- Harici bağlantı açarken (paylaşım, yasal metinler) iOS'un izin
+	     verdiği şemalar. Sorgulanmayan bir şema için canOpenURL false döner. -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>https</string>
+		<string>http</string>
+		<string>mailto</string>
+		<string>tel</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

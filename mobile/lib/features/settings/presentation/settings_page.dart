@@ -233,15 +233,54 @@ class _SettingsTile extends StatelessWidget {
   );
 }
 
-/// Yasal metinleri web sitesinde açar.
+/// Yasal metin seçeneklerini gösterir.
 ///
 /// Uygulama içinde tutmak yerine web'e yönlendiriyoruz: metinler hukuk
 /// tarafından güncellendiğinde uygulama sürümü beklemeden yayına girsin.
+///
+/// Eskiden tek bir `/yasal` adresi açılıyordu; web tarafında böyle bir sayfa
+/// yok — metinler `/gizlilik` ve `/kosullar` altında.
 Future<void> _openLegal(BuildContext context) async {
-  final url = Uri.parse('${ApiConfig.webUrl}/yasal');
+  final choice = await showModalBottomSheet<String>(
+    context: context,
+    backgroundColor: AppColors.cream,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+    ),
+    builder: (sheetContext) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 16),
+          Text('Yasal metinler', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 8),
+          ListTile(
+            leading: const Icon(Icons.privacy_tip_outlined),
+            title: const Text('Gizlilik ve KVKK aydınlatma metni'),
+            onTap: () => Navigator.pop(sheetContext, '/gizlilik'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.description_outlined),
+            title: const Text('Kullanım koşulları'),
+            onTap: () => Navigator.pop(sheetContext, '/kosullar'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.replay_outlined),
+            title: const Text('İptal ve iade koşulları'),
+            onTap: () => Navigator.pop(sheetContext, '/kosullar#7'),
+          ),
+          const SizedBox(height: 12),
+        ],
+      ),
+    ),
+  );
+
+  if (choice == null || !context.mounted) return;
+
+  final url = Uri.parse('${ApiConfig.webUrl}$choice');
   final opened = await launchUrl(url, mode: LaunchMode.externalApplication);
 
   if (!opened && context.mounted) {
-    showErrorSnack(context, 'Sayfa açılamadı: ${url.toString()}');
+    showErrorSnack(context, 'Sayfa açılamadı: $url');
   }
 }

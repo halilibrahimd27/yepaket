@@ -38,6 +38,7 @@ import {
   type PartnerDashboard,
   type PartnerOrder,
   type PayoutSummary,
+  type StoreProfile,
   type SessionUser,
 } from "@/lib/api";
 
@@ -47,6 +48,8 @@ export interface DashboardProps {
   bags: PartnerBag[];
   orders: PartnerOrder[];
   payout: PayoutSummary | null;
+  /** Mağaza düzenleme formunu dolduran tam profil. */
+  store: StoreProfile | null;
   loadFailed: boolean;
 }
 
@@ -100,7 +103,14 @@ function initials(name: string): string {
     .toLocaleUpperCase("tr-TR");
 }
 
-export function DashboardPage({ dashboard, bags, orders, payout, loadFailed }: DashboardProps) {
+export function DashboardPage({
+  dashboard,
+  bags,
+  orders,
+  payout,
+  store,
+  loadFailed,
+}: DashboardProps) {
   const router = useRouter();
   const [tab, setTab] = useState<PanelTab>("Genel Bakış");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -204,6 +214,7 @@ export function DashboardPage({ dashboard, bags, orders, payout, loadFailed }: D
         {tab === "Mağaza" && (
           <StorePanel
             dashboard={dashboard}
+            store={store}
             busyKey={busyKey}
             onSave={(payload) => runAction("store", "/partner/store", "PATCH", payload)}
           />
@@ -1148,10 +1159,12 @@ function RevenuePanel({
 
 function StorePanel({
   dashboard,
+  store,
   busyKey,
   onSave,
 }: {
   dashboard: PartnerDashboard | null;
+  store: StoreProfile | null;
   busyKey: string | null;
   onSave: (payload: Record<string, unknown>) => Promise<boolean>;
 }) {
@@ -1230,25 +1243,61 @@ function StorePanel({
             </h2>
           </div>
 
+          {/* Alanlar mevcut değerlerle açılır. Eskiden hepsi boş geliyordu:
+              telefonunu değiştirmek isteyen işletme, farkında olmadan
+              açıklamasını da silebilirdi. Ayrıca kapanış saati alanı hiç
+              yoktu ama gönderim kodunda aranıyordu. */}
           <label className="form-label sm:col-span-2">
             İşletme adı
-            <input name="name" className="form-input" defaultValue={dashboard?.store.name ?? ""} />
+            <input
+              name="name"
+              className="form-input"
+              defaultValue={store?.name ?? dashboard?.store.name ?? ""}
+            />
           </label>
           <label className="form-label">
             Telefon
-            <input name="phone" className="form-input" placeholder="0216 555 42 42" />
+            <input
+              name="phone"
+              className="form-input"
+              placeholder="0216 555 42 42"
+              defaultValue={store?.phone ?? ""}
+            />
+          </label>
+          <label className="form-label">
+            Adres
+            <input
+              name="addressLine"
+              className="form-input"
+              placeholder="Mahalle, cadde, no"
+              defaultValue={store?.address ?? ""}
+            />
           </label>
           <label className="form-label">
             Açılış saati
-            <input name="openingTime" type="time" className="form-input" />
+            <input
+              name="openingTime"
+              type="time"
+              className="form-input"
+              defaultValue={store?.opening_time ?? ""}
+            />
           </label>
-          <label className="form-label sm:col-span-2">
-            Adres
-            <input name="addressLine" className="form-input" placeholder="Mahalle, cadde, no" />
+          <label className="form-label">
+            Kapanış saati
+            <input
+              name="closingTime"
+              type="time"
+              className="form-input"
+              defaultValue={store?.closing_time ?? ""}
+            />
           </label>
           <label className="form-label sm:col-span-2">
             Mağaza açıklaması
-            <textarea name="description" className="form-input min-h-28 resize-none" />
+            <textarea
+              name="description"
+              className="form-input min-h-28 resize-none"
+              defaultValue={store?.description ?? ""}
+            />
           </label>
 
           <div className="flex items-center justify-end gap-3 border-t border-[var(--line)] pt-5 sm:col-span-2">

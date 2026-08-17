@@ -4,6 +4,8 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'app/app.dart';
 import 'core/network/api_client.dart';
 import 'core/network/api_config.dart';
+import 'core/network/realtime_client.dart';
+import 'core/notifications/push_service.dart';
 import 'data/repositories/repositories.dart';
 import 'data/state/app_state.dart';
 
@@ -27,5 +29,7 @@ AppState _remoteAppState() {
     bagRepository: RemoteBagRepository(client),
     orderRepository: RemoteOrderRepository(client),
     accountRepository: RemoteAccountRepository(client),
+    realtime: RealtimeClient(client),
+    push: PushService(),
   );
 }

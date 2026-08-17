@@ -1,0 +1,19 @@
+{
+  "_aciklama": [
+    "Bu dosya bir ÖRNEKTİR ve çalışmaz.",
+    "",
+    "Gerçek dosyayı Firebase Console'dan indirin:",
+    "  Proje ayarları -> Genel -> Uygulamalarınız -> Android -> google-services.json",
+    "",
+    "İndirdiğiniz dosyayı bu dizine 'google-services.json' adıyla koyun.",
+    "Gradle eklentisi dosyanın varlığını görüp push bildirimini kendiliğinden",
+    "etkinleştirir; başka bir değişiklik gerekmez.",
+    "",
+    "Android paket adı: com.yepaket.yepaket",
+    "",
+    "iOS için karşılığı: ios/Runner/GoogleService-Info.plist",
+    "",
+    "Bu dosya gizli sayılmaz (istemci tarafı yapılandırma) ama yine de",
+    "depoya eklenmemesi tercih edilir; .gitignore altındadır."
+  ]
+}

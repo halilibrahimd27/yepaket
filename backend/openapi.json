@@ -1708,7 +1708,7 @@
     },
     "/v1/support/tickets": {
       "post": {
-        "description": "Giriş yapmamış kullanıcı da talep açabilir.",
+        "description": "Giriş yapmamış kullanıcı da talep açabilir. Dakikada 3 istekle sınırlıdır.",
         "operationId": "SupportController_create",
         "parameters": [],
         "requestBody": {

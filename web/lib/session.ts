@@ -12,6 +12,7 @@ import { apiRequest, ApiError, type SessionUser } from "./api";
 
 const ACCESS_COOKIE = "yp_access";
 const REFRESH_COOKIE = "yp_refresh";
+const DEVICE_COOKIE = "yp_device";
 
 /** Erişim jetonu kısa ömürlü; yenileme jetonu uzun. */
 const ACCESS_MAX_AGE = 15 * 60;
@@ -56,11 +57,46 @@ export async function getRefreshToken(): Promise<string | undefined> {
 }
 
 /**
+ * Tarayıcıya sabitlenmiş cihaz kimliği.
+ *
+ * Her girişte yeni kimlik üretmek sunucuda her seferinde yeni bir oturum
+ * kaydı açar; "cihazlarım" listesi aynı tarayıcıyı onlarca kez gösterir ve
+ * kullanıcı hangisinin kendi bilgisayarı olduğunu ayırt edemez. Mobil
+ * istemci de kimliği kalıcı saklıyor; davranışlar böylece aynı.
+ *
+ * Kimlik gizli bilgi değildir ama httpOnly tutulur: sayfaya sızan bir betiğin
+ * okumasına gerek yok.
+ */
+export async function getDeviceId(): Promise<string> {
+  const jar = await cookies();
+  const existing = jar.get(DEVICE_COOKIE)?.value;
+  if (existing) return existing;
+
+  const id = `web-${crypto.randomUUID()}`;
+  jar.set(DEVICE_COOKIE, id, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+    path: "/",
+    // Cihaz kimliği oturumdan uzun yaşar: kullanıcı çıkıp yeniden girdiğinde
+    // aynı cihaz olarak tanınmalı.
+    maxAge: 2 * 365 * 24 * 3600,
+  });
+
+  return id;
+}
+
+/**
  * Oturum açmış kullanıcıyı döndürür, yoksa `null`.
  *
- * Erişim jetonu süresi dolduysa yenileme denenir; sunucu bileşeninden
- * çerez yazılamadığı için yenileme yalnızca route handler'da kalıcı olur.
- * Burada elde edilen taze jeton isteğin geri kalanında kullanılır.
+ * **Burada yenileme YAPILMAZ.** Yenileme jetonu her kullanımda döner ve
+ * yenisi saklanmalıdır; sunucu bileşenleri çerez yazamadığı için buradan
+ * yenilemek dönen jetonu kaybeder ve bir sonraki denemede sunucu bunu
+ * "kullanılmış jeton" sayıp tüm oturumları kapatır.
+ *
+ * Yenileme yalnızca `/api/auth/refresh` route handler'ında yapılır ve
+ * istemcideki `SessionKeeper` bileşeni bunu erişim jetonunun ömrü dolmadan
+ * düzenli olarak tetikler.
  */
 export async function getSessionUser(): Promise<SessionUser | null> {
   const accessToken = await getAccessToken();
@@ -93,7 +129,8 @@ export async function requireUser(
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     // Yetkisiz rol girişe değil ana sayfaya gider; tekrar giriş yapmak
-    // sorunu çözmez.
+    // sorunu çözmez. Parametre ana sayfada okunup kullanıcıya neden
+    // yönlendirildiği söylenir — eskiden hiçbir yerde okunmuyordu.
     redirect("/?hata=yetkisiz");
   }
 

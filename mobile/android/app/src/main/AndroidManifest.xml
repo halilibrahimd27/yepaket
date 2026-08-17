@@ -1,5 +1,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Konum: yakındaki paketleri listelemek ve mesafe göstermek için.
+         Yalnızca uygulama ön plandayken kullanılır; arka plan konumu
+         (ACCESS_BACKGROUND_LOCATION) İSTENMEZ — ihtiyacımız yok ve mağaza
+         incelemesinde ek gerekçe gerektirir. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+
+    <!-- Push bildirimi (Android 13+ çalışma zamanı izni). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
         android:label="YePaket"
         android:name="${applicationName}"
@@ -25,6 +35,35 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+
+            <!-- Özel şema derin bağlantısı: yepaket://sifre-sifirla?token=...
+                 Şifre sıfırlama e-postası bu bağlantıyı içerir. Kayıtlı
+                 olmadığında işletim sistemi bağlantıyı uygulamaya iletmez ve
+                 kullanıcı hesabına geri dönemez. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="yepaket"/>
+            </intent-filter>
+
+            <!-- Android App Links: https://yepaket.app/... bağlantıları
+                 doğrudan uygulamada açılır.
+
+                 `autoVerify` çalışması için sunucuda
+                 https://yepaket.app/.well-known/assetlinks.json dosyası
+                 yayınlanmalı ve imzalama anahtarının SHA-256 parmak izini
+                 içermeli. Dosya yoksa bağlantılar tarayıcıda açılır —
+                 uygulama yine de kırılmaz. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="yepaket.app"/>
+                <data android:pathPrefix="/sifre-sifirla"/>
+                <data android:pathPrefix="/teslim"/>
+                <data android:pathPrefix="/paket"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
