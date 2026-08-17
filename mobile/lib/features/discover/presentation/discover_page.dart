@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/models.dart';
 import '../../../data/state/app_state.dart';
+import '../../home/presentation/main_shell_page.dart';
 import '../../../shared/widgets/bag_card.dart';
 import '../../../shared/widgets/responsive_content.dart';
 
@@ -72,7 +73,7 @@ class DiscoverPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 26),
                   Text(
-                    'Merhaba Sef👋',
+                    'Merhaba ${state.user?.name.split(' ').first ?? 'misafir'} 👋',
                     style: Theme.of(context).textTheme.headlineLarge,
                   ),
                   const SizedBox(height: 5),
@@ -83,7 +84,9 @@ class DiscoverPage extends StatelessWidget {
                   const SizedBox(height: 21),
                   TextField(
                     readOnly: true,
-                    onTap: () {},
+                    // Keşif ekranındaki alan yalnızca bir giriş noktası;
+                    // asıl arama harita/liste sekmesinde yapılıyor.
+                    onTap: () => MainShellPage.goToTab(context, 1),
                     decoration: const InputDecoration(
                       hintText: 'Paket veya işletme ara',
                       prefixIcon: Icon(Icons.search_rounded),
@@ -91,10 +94,10 @@ class DiscoverPage extends StatelessWidget {
                     ),
                   ),
                   if (state.activeOrder != null &&
-                      state.activeOrder!.status ==
-                          OrderStatus.pickupPending) ...[
+                      state.activeOrder!.status.isActive) ...[
                     const SizedBox(height: 16),
                     _ActiveOrderBanner(
+                      order: state.activeOrder!,
                       onTap: () => context.push('/active-order'),
                     ),
                   ],
@@ -119,7 +122,7 @@ class DiscoverPage extends StatelessWidget {
                   _SectionHeader(
                     title: 'Sana özel',
                     action: 'Tümünü gör',
-                    onTap: () {},
+                    onTap: () => MainShellPage.goToTab(context, 1),
                   ),
                   const SizedBox(height: 13),
                 ],
@@ -210,7 +213,8 @@ class DiscoverPage extends StatelessWidget {
 }
 
 class _ActiveOrderBanner extends StatelessWidget {
-  const _ActiveOrderBanner({required this.onTap});
+  const _ActiveOrderBanner({required this.order, required this.onTap});
+  final AppOrder order;
   final VoidCallback onTap;
 
   @override
@@ -221,31 +225,32 @@ class _ActiveOrderBanner extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(22),
-        child: const Padding(
-          padding: EdgeInsets.all(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              Icon(Icons.shopping_bag_rounded, color: AppColors.forest),
-              SizedBox(width: 12),
+              const Icon(Icons.shopping_bag_rounded, color: AppColors.forest),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'Yaklaşan teslimin var',
                       style: TextStyle(
                         fontWeight: FontWeight.w900,
                         color: AppColors.forest,
                       ),
                     ),
+                    // Sabit metin yerine gerçek sipariş bilgisi (O1).
                     Text(
-                      'Moda Fırını · Bugün 20:00',
-                      style: TextStyle(fontSize: 11, color: AppColors.forest),
+                      '${order.bag.store} · ${order.pickupLabel}',
+                      style: const TextStyle(fontSize: 11, color: AppColors.forest),
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.arrow_forward_rounded, color: AppColors.forest),
+              const Icon(Icons.arrow_forward_rounded, color: AppColors.forest),
             ],
           ),
         ),

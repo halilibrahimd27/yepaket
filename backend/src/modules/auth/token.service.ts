@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { Env } from '../../config/env';
 import { PrismaService } from '../../database/prisma.service';
+import { SessionRevocationService } from './session-revocation.service';
 import { AppError } from '../../common/errors/app-error';
 import { ErrorCode } from '../../common/errors/error-codes';
 import type { AccessTokenPayload } from '../../common/guards/jwt-auth.guard';
@@ -35,6 +36,7 @@ export class TokenService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService<Env, true>,
+    private readonly revocations: SessionRevocationService,
   ) {}
 
   /**
@@ -179,6 +181,10 @@ export class TokenService {
       return next;
     });
 
+    // Döndürülen oturumun erişim jetonu da geçersizleşir: yenileme jetonu
+    // ele geçirilip döndürüldüyse, eski erişim jetonu da kullanılmamalı.
+    await this.revocations.revoke(session.id);
+
     return {
       accessToken: await this.signAccessToken(session.user, created.id),
       refreshToken: newRefreshToken,
@@ -186,20 +192,37 @@ export class TokenService {
     };
   }
 
-  /** Tek oturumu kapatır (çıkış). */
+  /**
+   * Tek oturumu kapatır (çıkış).
+   *
+   * Veritabanı kaydının yanı sıra oturum kara listeye alınır; aksi hâlde
+   * elde bulunan erişim jetonu süresi dolana kadar çalışmaya devam ederdi.
+   */
   async revokeSession(sessionId: string, reason = 'logout'): Promise<void> {
     await this.prisma.session.updateMany({
       where: { id: sessionId, revokedAt: null },
       data: { revokedAt: new Date(), revokeReason: reason },
     });
+    await this.revocations.revoke(sessionId);
   }
 
   /** Kullanıcının tüm açık oturumlarını kapatır. */
   async revokeAllForUser(userId: string, reason: string): Promise<number> {
+    // Kimlikler önce okunur: updateMany güncellenen satırları döndürmez ve
+    // hangi oturumların kara listeye gireceğini bilmemiz gerekiyor.
+    const sessions = await this.prisma.session.findMany({
+      where: { userId, revokedAt: null },
+      select: { id: true },
+    });
+
+    if (sessions.length === 0) return 0;
+
     const result = await this.prisma.session.updateMany({
       where: { userId, revokedAt: null },
       data: { revokedAt: new Date(), revokeReason: reason },
     });
+
+    await this.revocations.revokeMany(sessions.map((session) => session.id));
     return result.count;
   }
 

@@ -6,7 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/api_config.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../data/dummy/dummy_data.dart';
+import '../../../data/models/models.dart';
 import '../../../data/state/app_state.dart';
 import '../../../shared/widgets/bag_card.dart';
 
@@ -18,10 +18,27 @@ class BrowsePage extends StatefulWidget {
 }
 
 class _BrowsePageState extends State<BrowsePage> {
+  final searchController = TextEditingController();
   bool listMode = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Arama kutusundaki temizle düğmesinin görünürlüğü metne bağlı.
+    searchController.addListener(() => setState(() {}));
+    searchController.text = context.read<AppState>().searchQuery;
+  }
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+
     return SafeArea(
       bottom: false,
       child: Column(
@@ -32,11 +49,26 @@ class _BrowsePageState extends State<BrowsePage> {
               children: [
                 Expanded(
                   child: TextField(
-                    readOnly: true,
-                    decoration: const InputDecoration(
-                      hintText: 'Kadıköy canlı haritasında ara',
-                      prefixIcon: Icon(Icons.search_rounded),
-                      contentPadding: EdgeInsets.symmetric(vertical: 13),
+                    controller: searchController,
+                    textInputAction: TextInputAction.search,
+                    // Her tuşta istek atmamak için gönderimde aranıyor;
+                    // her karakterde sorgu, sunucuyu gereksiz yorar.
+                    onSubmitted: (value) =>
+                        context.read<AppState>().search(value.trim()),
+                    decoration: InputDecoration(
+                      hintText: 'Paket veya işletme ara',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 13),
+                      suffixIcon: searchController.text.isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.close_rounded),
+                              onPressed: () {
+                                searchController.clear();
+                                context.read<AppState>().search('');
+                                setState(() {});
+                              },
+                            ),
                     ),
                   ),
                 ),
@@ -60,19 +92,36 @@ class _BrowsePageState extends State<BrowsePage> {
             child: ListView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              children: const [
+              children: [
+                // Kategori: sunucudaki filtreyi uygular.
                 _FilterChip(
-                  label: 'Canlı',
-                  icon: Icons.wifi_tethering_rounded,
-                  selected: true,
-                ),
-                _FilterChip(label: 'Kategori', icon: Icons.expand_more_rounded),
-                _FilterChip(
-                  label: 'Teslim zamanı',
+                  label: state.selectedCategory == BagCategory.all
+                      ? 'Kategori'
+                      : state.selectedCategory.label,
                   icon: Icons.expand_more_rounded,
+                  selected: state.selectedCategory != BagCategory.all,
+                  onPressed: () => _pickCategory(context, state),
                 ),
-                _FilterChip(label: 'Mesafe', icon: Icons.expand_more_rounded),
-                _FilterChip(label: 'Fiyat', icon: Icons.expand_more_rounded),
+                // Sıralama: sunucunun desteklediği beş seçenek.
+                _FilterChip(
+                  label: state.selectedSort == BagSort.relevance
+                      ? 'Sırala'
+                      : state.selectedSort.label,
+                  icon: Icons.swap_vert_rounded,
+                  selected: state.selectedSort != BagSort.relevance,
+                  onPressed: () => _pickSort(context, state),
+                ),
+                if (state.selectedCategory != BagCategory.all ||
+                    state.selectedSort != BagSort.relevance ||
+                    state.searchQuery.isNotEmpty)
+                  _FilterChip(
+                    label: 'Filtreleri temizle',
+                    icon: Icons.close_rounded,
+                    onPressed: () {
+                      searchController.clear();
+                      state.clearFilters();
+                    },
+                  ),
               ],
             ),
           ),
@@ -88,11 +137,13 @@ class _FilterChip extends StatelessWidget {
   const _FilterChip({
     required this.label,
     required this.icon,
+    required this.onPressed,
     this.selected = false,
   });
 
   final String label;
   final IconData icon;
+  final VoidCallback onPressed;
   final bool selected;
 
   @override
@@ -104,10 +155,76 @@ class _FilterChip extends StatelessWidget {
         avatar: Icon(icon, size: 16),
         backgroundColor: selected ? AppColors.lime : null,
         side: selected ? BorderSide.none : null,
-        onPressed: () {},
+        onPressed: onPressed,
       ),
     );
   }
+}
+
+/// Kategori seçimi.
+Future<void> _pickCategory(BuildContext context, AppState state) async {
+  final selected = await showModalBottomSheet<BagCategory>(
+    context: context,
+    backgroundColor: AppColors.cream,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+    ),
+    builder: (sheetContext) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 16),
+          Text('Kategori', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 8),
+          ...BagCategory.values.map(
+            (category) => ListTile(
+              title: Text(category.label),
+              trailing: state.selectedCategory == category
+                  ? const Icon(Icons.check_rounded, color: AppColors.forest)
+                  : null,
+              onTap: () => Navigator.pop(sheetContext, category),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+      ),
+    ),
+  );
+
+  if (selected != null) await state.selectCategory(selected);
+}
+
+/// Sıralama seçimi.
+Future<void> _pickSort(BuildContext context, AppState state) async {
+  final selected = await showModalBottomSheet<BagSort>(
+    context: context,
+    backgroundColor: AppColors.cream,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+    ),
+    builder: (sheetContext) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 16),
+          Text('Sırala', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 8),
+          ...BagSort.values.map(
+            (sort) => ListTile(
+              title: Text(sort.label),
+              trailing: state.selectedSort == sort
+                  ? const Icon(Icons.check_rounded, color: AppColors.forest)
+                  : null,
+              onTap: () => Navigator.pop(sheetContext, sort),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+      ),
+    ),
+  );
+
+  if (selected != null) await state.selectSort(selected);
 }
 
 class _ListView extends StatelessWidget {
@@ -169,7 +286,23 @@ class _LiveMapViewState extends State<_LiveMapView>
 
   @override
   Widget build(BuildContext context) {
-    final selectedBag = DummyData.bags[selectedBagIndex];
+    // Harita artık AppState'ten besleniyor; DummyData okumak uzak modda
+    // var olmayan paketlere yönlendirip çökmeye yol açıyordu (K2).
+    final bags = context.watch<AppState>().bags;
+    if (bags.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text(
+            'Yakınında yayında paket yok.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppColors.muted),
+          ),
+        ),
+      );
+    }
+    final safeIndex = selectedBagIndex.clamp(0, bags.length - 1);
+    final selectedBag = bags[safeIndex];
     return Stack(
       children: [
         Positioned.fill(
@@ -210,7 +343,7 @@ class _LiveMapViewState extends State<_LiveMapView>
               ),
               MarkerLayer(
                 markers: [
-                  for (var index = 0; index < storeLocations.length; index++)
+                  for (var index = 0; index < bags.length && index < storeLocations.length; index++)
                     Marker(
                       point: storeLocations[index],
                       width: 78,
@@ -223,8 +356,8 @@ class _LiveMapViewState extends State<_LiveMapView>
                             : index == 2
                             ? 'M'
                             : 'P',
-                        price: '${DummyData.bags[index].price}₺',
-                        selected: selectedBagIndex == index,
+                        price: bags[index].priceLabel,
+                        selected: safeIndex == index,
                         onTap: () => setState(() => selectedBagIndex = index),
                       ),
                     ),
@@ -288,16 +421,16 @@ class _LiveMapViewState extends State<_LiveMapView>
                 ),
               ],
             ),
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _LiveDot(),
-                SizedBox(width: 8),
+                const _LiveDot(),
+                const SizedBox(width: 8),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'KADIKÖY CANLI',
+                    const Text(
+                      'HARİTADA CANLI',
                       style: TextStyle(
                         fontSize: 8,
                         fontWeight: FontWeight.w900,
@@ -305,9 +438,12 @@ class _LiveMapViewState extends State<_LiveMapView>
                         color: AppColors.lime,
                       ),
                     ),
+                    // Sayı gerçek listeden gelir; eskiden "12" sabitti (O1).
                     Text(
-                      '12 kurtarıcı yakında',
-                      style: TextStyle(
+                      bags.isEmpty
+                          ? 'Bu bölgede paket yok'
+                          : '${bags.length} paket yakında',
+                      style: const TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,

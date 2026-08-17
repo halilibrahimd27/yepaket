@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsBoolean,
   IsEmail,
   IsEnum,
   IsIn,
@@ -158,6 +159,34 @@ export class ChangePasswordDto {
   newPassword!: string;
 }
 
+/**
+ * Şifre sıfırlama isteği.
+ *
+ * Yalnızca e-posta alınır; yanıt adresin kayıtlı olup olmadığını sızdırmaz.
+ */
+export class RequestPasswordResetDto {
+  @ApiProperty({ example: 'eylul@example.com' })
+  @Transform(normalizeEmail)
+  @IsEmail({}, { message: 'Geçerli bir e-posta adresi girin.' })
+  email!: string;
+}
+
+export class ConfirmPasswordResetDto {
+  @ApiProperty({ description: 'E-postadaki bağlantıda yer alan jeton' })
+  @IsString()
+  @Length(20, 200)
+  token!: string;
+
+  @ApiProperty({ minLength: 8 })
+  @IsString()
+  @MinLength(8)
+  @MaxLength(128)
+  @Matches(/(?=.*[a-zA-ZğüşöçıİĞÜŞÖÇ])(?=.*\d)/, {
+    message: 'Şifre en az bir harf ve bir rakam içermelidir.',
+  })
+  newPassword!: string;
+}
+
 export class UpdateProfileDto {
   @ApiPropertyOptional()
   @IsOptional()
@@ -175,6 +204,34 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsIn(['tr-TR', 'en-US'])
   locale?: string;
+}
+
+/**
+ * Bildirim tercihleri.
+ *
+ * Hepsi isteğe bağlı: kısmi güncelleme yapılabilsin diye. Gönderilmeyen
+ * alan mevcut değerini korur.
+ */
+export class NotificationPreferencesDto {
+  @ApiPropertyOptional({ description: 'Favori işletme yeni paket yayınladığında' })
+  @IsOptional()
+  @IsBoolean()
+  bagAvailable?: boolean;
+
+  @ApiPropertyOptional({ description: 'Sipariş durumu ve teslim hatırlatması' })
+  @IsOptional()
+  @IsBoolean()
+  orderUpdates?: boolean;
+
+  @ApiPropertyOptional({ description: 'Aylık etki özeti' })
+  @IsOptional()
+  @IsBoolean()
+  impactDigest?: boolean;
+
+  @ApiPropertyOptional({ description: 'Kampanya ve duyurular' })
+  @IsOptional()
+  @IsBoolean()
+  campaigns?: boolean;
 }
 
 /** OAuth sağlayıcısı yol parametresi olarak gelir. */

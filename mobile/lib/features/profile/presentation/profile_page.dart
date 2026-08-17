@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../data/dummy/dummy_data.dart';
 import '../../../data/models/models.dart';
 import '../../../data/state/app_state.dart';
 import '../../../shared/widgets/app_image.dart';
@@ -16,7 +15,7 @@ class ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final impact = DummyData.impact;
+    final impact = state.impact;
     return SafeArea(
       bottom: false,
       child: SingleChildScrollView(
@@ -36,8 +35,8 @@ class ProfilePage extends StatelessWidget {
                       color: AppColors.lime,
                       shape: BoxShape.circle,
                     ),
-                    child: const Text(
-                      'EK',
+                    child: Text(
+                      state.user?.initials ?? 'YP',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
@@ -46,12 +45,12 @@ class ProfilePage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 13),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Sefa GÜR',
+                          state.user?.name ?? 'Misafir',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w900,
@@ -59,7 +58,7 @@ class ProfilePage extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'eylul@example.com',
+                          state.user?.email ?? '',
                           style: TextStyle(
                             fontSize: 12,
                             color: AppColors.muted,
@@ -77,7 +76,7 @@ class ProfilePage extends StatelessWidget {
               ),
               const SizedBox(height: 26),
               if (state.activeOrder != null &&
-                  state.activeOrder!.status == OrderStatus.pickupPending) ...[
+                  state.activeOrder!.status.isActive) ...[
                 Row(
                   children: [
                     Expanded(
@@ -162,19 +161,19 @@ class ProfilePage extends StatelessWidget {
                       _ImpactCard(
                         index: '02',
                         asset: 'assets/icons/savings.svg',
-                        value: '${impact.moneySaved} ₺',
+                        value: impact.moneySavedLabel,
                         label: 'tasarruf edildi',
                       ),
                       _ImpactCard(
                         index: '03',
                         asset: 'assets/icons/co2-leaf.svg',
-                        value: '${impact.co2Kg} kg',
+                        value: impact.co2Label,
                         label: 'CO₂e önlendi',
                       ),
                       _ImpactCard(
                         index: '04',
                         asset: 'assets/icons/water-drop.svg',
-                        value: '${impact.waterLiters} L',
+                        value: impact.waterLabel,
                         label: 'su korundu',
                         background: const Color(0xFFE8F4F1),
                       ),
@@ -191,31 +190,39 @@ class ProfilePage extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Gezegen kahramanı',
-                            style: TextStyle(
+                            impact.level.label,
+                            style: const TextStyle(
                               fontSize: 19,
                               fontWeight: FontWeight.w900,
                               color: Colors.white,
                             ),
                           ),
-                          SizedBox(height: 6),
+                          const SizedBox(height: 6),
+                          // Sabit metin ve %72'lik sabit çubuk yerine gerçek
+                          // ilerleme; sıfır paketle "%72 doldu" göstermek
+                          // kullanıcıyı yanıltıyordu (O1).
                           Text(
-                            '3 paket daha kurtar, Yeşil Seviye’ye ulaş.',
-                            style: TextStyle(
+                            impact.bagsToNextLevel == 0
+                                ? 'En üst seviyedesin. Kurtarmaya devam!'
+                                : '${impact.bagsToNextLevel} paket daha kurtar, '
+                                      '${impact.level.next!.label}\'ye ulaş.',
+                            style: const TextStyle(
                               fontSize: 11,
                               color: Colors.white60,
                             ),
                           ),
-                          SizedBox(height: 13),
+                          const SizedBox(height: 13),
                           ClipRRect(
-                            borderRadius: BorderRadius.all(Radius.circular(99)),
+                            borderRadius: const BorderRadius.all(
+                              Radius.circular(99),
+                            ),
                             child: LinearProgressIndicator(
-                              value: .72,
+                              value: impact.levelProgress,
                               minHeight: 7,
                               color: AppColors.lime,
                               backgroundColor: Colors.white12,

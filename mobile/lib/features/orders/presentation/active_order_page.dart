@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/state/app_state.dart';
 import '../../../shared/widgets/app_image.dart';
+import '../../../data/models/models.dart';
+import '../../../shared/widgets/async_content.dart';
 import '../../../shared/widgets/responsive_content.dart';
 
 class ActiveOrderPage extends StatefulWidget {
@@ -18,11 +20,42 @@ class _ActiveOrderPageState extends State<ActiveOrderPage> {
   double slider = 0;
   bool completing = false;
 
-  Future<void> complete() async {
+  /// Teslim onayı.
+  ///
+  /// Kaydırma tek başına yeterli değil: sunucudan tek kullanımlık bir nonce
+  /// alınır ve teslim onayı bununla yapılır. Sunucu zaman aralığını ve
+  /// sipariş sahipliğini kendi saatine göre doğrular.
+  Future<void> complete(AppOrder order) async {
     if (completing) return;
     setState(() => completing = true);
-    await context.read<AppState>().completePickup();
-    if (mounted) context.go('/pickup-complete');
+
+    final state = context.read<AppState>();
+    final nonceResult = await state.requestPickupNonce(order.id);
+
+    if (!mounted) return;
+
+    switch (nonceResult) {
+      case Failure(message: final message):
+        setState(() {
+          completing = false;
+          slider = 0;
+        });
+        showErrorSnack(context, message);
+        return;
+      case Success(value: final nonce):
+        final result = await state.completePickup(order, nonce.nonce);
+
+        if (!mounted) return;
+        setState(() => completing = false);
+
+        switch (result) {
+          case Success():
+            context.go('/pickup-complete/${order.id}');
+          case Failure(message: final message):
+            setState(() => slider = 0);
+            showErrorSnack(context, message);
+        }
+    }
   }
 
   @override
@@ -136,7 +169,7 @@ class _ActiveOrderPageState extends State<ActiveOrderPage> {
                                 ),
                               ),
                               Text(
-                                '${order.total} ₺',
+                                order.totalLabel,
                                 style: const TextStyle(
                                   fontSize: 22,
                                   fontWeight: FontWeight.w900,
@@ -148,10 +181,12 @@ class _ActiveOrderPageState extends State<ActiveOrderPage> {
                           const SizedBox(height: 17),
                           const Divider(),
                           const SizedBox(height: 14),
+                          // Sabit saat yazılıydı; artık siparişin kendi
+                          // teslim aralığı gösteriliyor (O1).
                           _DetailRow(
                             icon: Icons.schedule_rounded,
                             label: 'Teslim zamanı',
-                            value: 'Bugün 20:00–20:30',
+                            value: order.pickupLabel,
                           ),
                           const SizedBox(height: 13),
                           _DetailRow(
@@ -178,10 +213,12 @@ class _ActiveOrderPageState extends State<ActiveOrderPage> {
                 ),
               ),
               const SizedBox(height: 23),
-              const Text(
-                'Mağaza personelinin önünde kaydır',
+              Text(
+                order.isPickupAvailable
+                    ? 'Mağaza personelinin önünde kaydır'
+                    : 'Teslim aralığı açıldığında kaydırabilirsin',
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w900,
                   color: AppColors.forest,
@@ -200,12 +237,12 @@ class _ActiveOrderPageState extends State<ActiveOrderPage> {
                       width: 64,
                       child: Slider(
                         value: slider,
-                        onChanged: completing
+                        onChanged: completing || !order.isPickupAvailable
                             ? null
                             : (value) => setState(() => slider = value),
                         onChangeEnd: (value) {
                           if (value > .92) {
-                            complete();
+                            complete(order);
                           } else {
                             setState(() => slider = 0);
                           }
@@ -257,7 +294,7 @@ class _ActiveOrderPageState extends State<ActiveOrderPage> {
                 label: const Text('Siparişle ilgili yardım al'),
               ),
               TextButton(
-                onPressed: completing ? null : () => _cancelOrder(context),
+                onPressed: completing ? null : () => _cancelOrder(context, order),
                 child: const Text(
                   'Siparişi iptal et',
                   style: TextStyle(color: Colors.redAccent),
@@ -274,19 +311,19 @@ class _ActiveOrderPageState extends State<ActiveOrderPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          'Tek kullanımlık teslim bağlantısı hazırlandı. Demo modunda paylaşılmadı.',
+          'Tek kullanımlık teslim bağlantısı hazırlandı.',
         ),
       ),
     );
   }
 
-  static Future<void> _cancelOrder(BuildContext context) async {
+  static Future<void> _cancelOrder(BuildContext context, AppOrder order) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Sipariş iptal edilsin mi?'),
         content: const Text(
-          'Demo modunda sipariş iptal edilerek geçmiş siparişlere taşınacak.',
+          'Ücretsiz iptal penceresi açıksa ödemen iade edilir.',
         ),
         actions: [
           TextButton(
@@ -301,8 +338,17 @@ class _ActiveOrderPageState extends State<ActiveOrderPage> {
       ),
     );
     if (confirmed != true || !context.mounted) return;
-    await context.read<AppState>().cancelActiveOrder();
-    if (context.mounted) context.go('/orders');
+
+    final result = await context.read<AppState>().cancelOrder(order);
+    if (!context.mounted) return;
+
+    switch (result) {
+      case Success():
+        showInfoSnack(context, 'Siparişin iptal edildi. İade süreci başlatıldı.');
+        context.go('/orders');
+      case Failure(message: final message):
+        showErrorSnack(context, message);
+    }
   }
 }
 

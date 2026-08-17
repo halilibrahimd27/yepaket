@@ -5,15 +5,25 @@ import { AppError } from '../../common/errors/app-error';
 import { ErrorCode } from '../../common/errors/error-codes';
 import type { AuthProvider, User } from '../../generated/prisma/client';
 import { OAuthVerifierService } from './oauth-verifier.service';
+import { SessionRevocationService } from './session-revocation.service';
 import { TokenService, type SessionContext, type TokenPair } from './token.service';
 import type {
   ChangePasswordDto,
   DeviceInfoDto,
   LoginDto,
+  NotificationPreferencesDto,
   OAuthLoginDto,
   RegisterDto,
   UpdateProfileDto,
 } from './dto/auth.dto';
+
+/** Bildirim tercihlerinin tam hâli; eksik anahtar bırakılmaz. */
+export interface NotificationPreferences {
+  bagAvailable: boolean;
+  orderUpdates: boolean;
+  impactDigest: boolean;
+  campaigns: boolean;
+}
 
 /**
  * Argon2id parametreleri.
@@ -58,6 +68,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly tokens: TokenService,
     private readonly oauth: OAuthVerifierService,
+    private readonly revocations: SessionRevocationService,
   ) {}
 
   static toPublicUser(user: User): PublicUser {
@@ -254,6 +265,56 @@ export class AuthService {
     return AuthService.toPublicUser(user);
   }
 
+  /**
+   * Bildirim tercihlerini okur.
+   *
+   * Kaydedilmemiş anahtar "açık" sayılır: yeni bir bildirim türü
+   * eklendiğinde mevcut kullanıcılar da alsın, sessizce dışarıda kalmasın.
+   */
+  async notificationPreferences(userId: string): Promise<NotificationPreferences> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { notificationPrefs: true },
+    });
+
+    return AuthService.mergePreferences(user?.notificationPrefs);
+  }
+
+  async updateNotificationPreferences(
+    userId: string,
+    dto: NotificationPreferencesDto,
+  ): Promise<NotificationPreferences> {
+    const current = await this.notificationPreferences(userId);
+
+    // Kısmi güncelleme: gönderilmeyen alan mevcut değerini korur.
+    const next: NotificationPreferences = {
+      bagAvailable: dto.bagAvailable ?? current.bagAvailable,
+      orderUpdates: dto.orderUpdates ?? current.orderUpdates,
+      impactDigest: dto.impactDigest ?? current.impactDigest,
+      campaigns: dto.campaigns ?? current.campaigns,
+    };
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      // Prisma'nın JSON girdisi indeks imzası bekler; arayüzü olduğu gibi
+      // vermek tip hatası üretiyor.
+      data: { notificationPrefs: { ...next } },
+    });
+
+    return next;
+  }
+
+  /** JSON alanını varsayılanlarla birleştirir. */
+  private static mergePreferences(value: unknown): NotificationPreferences {
+    const stored = (value ?? {}) as Partial<NotificationPreferences>;
+    return {
+      bagAvailable: stored.bagAvailable ?? true,
+      orderUpdates: stored.orderUpdates ?? true,
+      impactDigest: stored.impactDigest ?? true,
+      campaigns: stored.campaigns ?? true,
+    };
+  }
+
   async updateProfile(userId: string, dto: UpdateProfileDto): Promise<PublicUser> {
     const user = await this.prisma.user.update({
       where: { id: userId },
@@ -289,10 +350,20 @@ export class AuthService {
       data: { passwordHash: await hash(dto.newPassword, ARGON2_OPTIONS) },
     });
 
+    // Kimlikler önce okunur: kara listeye alınacak oturumları bilmek
+    // gerekiyor. Yalnızca veritabanını güncellemek yetmez; elde bulunan
+    // erişim jetonları süresi dolana kadar çalışmaya devam ederdi.
+    const targets = await this.prisma.session.findMany({
+      where: { userId, revokedAt: null, id: { not: currentSessionId } },
+      select: { id: true },
+    });
+
     const revoked = await this.prisma.session.updateMany({
       where: { userId, revokedAt: null, id: { not: currentSessionId } },
       data: { revokedAt: new Date(), revokeReason: 'password_changed' },
     });
+
+    await this.revocations.revokeMany(targets.map((session) => session.id));
 
     return { revokedSessions: revoked.count };
   }
@@ -306,6 +377,11 @@ export class AuthService {
    * bozardı.
    */
   async deleteAccount(userId: string): Promise<void> {
+    const sessions = await this.prisma.session.findMany({
+      where: { userId, revokedAt: null },
+      select: { id: true },
+    });
+
     await this.prisma.$transaction(async (tx) => {
       const anonymousEmail = `silinmis+${userId}@yepaket.invalid`;
 
@@ -328,6 +404,9 @@ export class AuthService {
         data: { revokedAt: new Date(), revokeReason: 'account_deleted' },
       });
     });
+
+    // Silinen hesabın elindeki erişim jetonları da anında geçersizleşir.
+    await this.revocations.revokeMany(sessions.map((session) => session.id));
 
     this.logger.log(`Hesap anonimleştirildi: ${userId}`);
   }

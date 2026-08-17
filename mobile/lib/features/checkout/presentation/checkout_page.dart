@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../data/state/app_state.dart';
 import '../../../shared/widgets/app_image.dart';
 import '../../../shared/widgets/primary_button.dart';
+import '../../../data/models/models.dart';
+import '../../../shared/widgets/async_content.dart';
 import '../../../shared/widgets/responsive_content.dart';
 
 class CheckoutPage extends StatefulWidget {
@@ -21,17 +24,78 @@ class _CheckoutPageState extends State<CheckoutPage> {
   int payment = 0;
   bool loading = false;
 
-  Future<void> confirm() async {
+  /// Idempotency anahtarı **ekran açılışında bir kez** üretilir.
+  ///
+  /// Her istekte yeniden üretmek korumayı tamamen etkisiz kılıyordu: ağ
+  /// tekrarında ikinci sipariş oluşuyordu (O5).
+  late final String _idempotencyKey =
+      'order_${DateTime.now().microsecondsSinceEpoch}_${identityHashCode(this)}';
+
+  Future<void> confirm(SurpriseBag bag) async {
+    if (loading) return;
     setState(() => loading = true);
+
     final state = context.read<AppState>();
-    await state.createOrder(state.bagById(widget.bagId), quantity);
-    if (mounted) context.go('/order-success');
+    final result = await state.createOrder(
+      bag,
+      quantity,
+      idempotencyKey: _idempotencyKey,
+    );
+
+    if (!mounted) return;
+    // Hata durumunda da yükleme kapanır; eskiden buton sonsuza kadar
+    // devre dışı kalıyordu (K3).
+    setState(() => loading = false);
+
+    switch (result) {
+      case Success(value: final order):
+        if (order.paymentRedirectUrl != null) {
+          await _openPayment(order);
+          if (!mounted) return;
+        }
+        context.go('/order-success/${order.id}');
+      case Failure(message: final message):
+        showErrorSnack(context, message);
+    }
+  }
+
+  /// 3D Secure sayfasını açar ve dönüşte ödemeyi tamamlar.
+  Future<void> _openPayment(AppOrder order) async {
+    final url = Uri.tryParse(order.paymentRedirectUrl ?? '');
+    if (url == null) return;
+
+    await launchUrl(url, mode: LaunchMode.externalApplication);
+
+    if (!mounted) return;
+    final result = await context.read<AppState>().confirmPayment(order.id);
+
+    if (!mounted) return;
+    if (result case Failure(message: final message)) {
+      showErrorSnack(context, message);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final bag = context.read<AppState>().bagById(widget.bagId);
-    final total = bag.price * quantity;
+    final bag = context.watch<AppState>().bagById(widget.bagId);
+
+    if (bag == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Sipariş özeti')),
+        body: AsyncContent(
+          isLoading: false,
+          error: null,
+          isEmpty: true,
+          emptyTitle: 'Paket bulunamadı',
+          emptyMessage: 'Bu paketin satışı sona ermiş olabilir.',
+          emptyIcon: Icons.shopping_bag_outlined,
+          onRetry: () => context.go('/home'),
+          builder: (_) => const SizedBox.shrink(),
+        ),
+      );
+    }
+
+    final totalMinor = bag.priceMinor * quantity;
     return Scaffold(
       appBar: AppBar(title: const Text('Sipariş özeti')),
       body: SingleChildScrollView(
@@ -89,7 +153,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       ),
                     ),
                     Text(
-                      '${bag.price} ₺',
+                      bag.priceLabel,
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w900,
@@ -172,7 +236,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   children: [
                     _PriceRow(
                       label: 'Paket',
-                      value: '${bag.price * quantity} ₺',
+                      value: Formats.money(bag.priceMinor * quantity),
                     ),
                     const SizedBox(height: 11),
                     const _PriceRow(label: 'Hizmet bedeli', value: '0 ₺'),
@@ -180,7 +244,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       padding: EdgeInsets.symmetric(vertical: 15),
                       child: Divider(),
                     ),
-                    _PriceRow(label: 'Toplam', value: '$total ₺', strong: true),
+                    _PriceRow(label: 'Toplam', value: Formats.money(totalMinor), strong: true),
                   ],
                 ),
               ),
@@ -214,9 +278,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(18, 10, 18, 12),
           child: PrimaryButton(
-            label: '$total ₺ öde ve rezerve et',
+            label: '${Formats.money(totalMinor)} öde ve rezerve et',
             loading: loading,
-            onPressed: confirm,
+            onPressed: () => confirm(bag),
           ),
         ),
       ),

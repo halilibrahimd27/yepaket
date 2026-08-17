@@ -1,18 +1,50 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../data/models/models.dart';
 import '../../../data/state/app_state.dart';
+import '../../../shared/widgets/async_content.dart';
 import '../../../shared/widgets/primary_button.dart';
 import '../../../shared/widgets/responsive_content.dart';
 
+/// Teslim sonrası kutlama ekranı.
+///
+/// Sipariş kimliği yol parametresinden gelir: teslim alındıktan sonra sipariş
+/// artık "aktif" sayılmadığı için `activeOrder` üzerinden bulunamıyordu ve
+/// ekran her zaman "İşletme" yazıyordu.
 class PickupCompletePage extends StatelessWidget {
-  const PickupCompletePage({super.key});
+  const PickupCompletePage({required this.orderId, super.key});
+
+  final String orderId;
 
   @override
   Widget build(BuildContext context) {
-    final order = context.read<AppState>().activeOrder;
+    final state = context.watch<AppState>();
+    final order = state.orderById(orderId);
+
+    if (order == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Teslim alındı')),
+        body: AsyncContent(
+          isLoading: false,
+          error: null,
+          isEmpty: true,
+          emptyTitle: 'Sipariş bulunamadı',
+          emptyMessage: 'Siparişlerin sayfasından takip edebilirsin.',
+          emptyIcon: Icons.receipt_long_outlined,
+          onRetry: () => context.go('/orders'),
+          builder: (_) => const SizedBox.shrink(),
+        ),
+      );
+    }
+
+    // Etki değerleri bu siparişten hesaplanır; eskiden sabit "2,7 kg / 281 ₺"
+    // yazıyordu ve her sipariş için aynı görünüyordu (O1).
+    final impact = order.impact;
+
     return Scaffold(
       body: SafeArea(
         child: ResponsiveContent(
@@ -49,7 +81,7 @@ class PickupCompletePage extends StatelessWidget {
               ),
               const SizedBox(height: 13),
               Text(
-                '${order?.bag.store ?? 'İşletme'} paketini çöpe gitmekten kurtardın.',
+                '${order.bag.store} paketini çöpe gitmekten kurtardın.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 15,
@@ -64,25 +96,26 @@ class PickupCompletePage extends StatelessWidget {
                   color: AppColors.forest,
                   borderRadius: BorderRadius.circular(25),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _MiniImpact(value: '2,7 kg', label: 'CO₂e'),
-                    _MiniImpact(value: '281 ₺', label: 'tasarruf'),
-                    _MiniImpact(value: '+1', label: 'paket'),
+                    _MiniImpact(value: impact.co2Label, label: 'CO₂e'),
+                    _MiniImpact(
+                      value: Formats.money(impact.moneySavedMinor),
+                      label: 'tasarruf',
+                    ),
+                    _MiniImpact(value: '+${order.quantity}', label: 'paket'),
                   ],
                 ),
               ),
               const Spacer(),
               PrimaryButton(
                 label: 'Deneyimini değerlendir',
-                onPressed: () => context.go('/rating'),
+                onPressed: () => context.go('/rating/${order.id}'),
               ),
               const SizedBox(height: 9),
               OutlinedButton.icon(
-                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Paylaşım kartı hazırlandı.')),
-                ),
+                onPressed: () => _share(context, order, impact),
                 icon: const Icon(Icons.ios_share_rounded),
                 label: const Text('Başarımı paylaş'),
                 style: OutlinedButton.styleFrom(
@@ -97,6 +130,19 @@ class PickupCompletePage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _share(
+    BuildContext context,
+    AppOrder order,
+    UserImpact impact,
+  ) async {
+    final text =
+        'YePaket ile ${order.bag.store} işletmesinden ${order.quantity} paket '
+        'kurtardım. ${impact.co2Label} CO₂e tasarrufu ve '
+        '${Formats.money(impact.moneySavedMinor)} cebimde kaldı! 🌱';
+
+    await SharePlus.instance.share(ShareParams(text: text));
   }
 }
 

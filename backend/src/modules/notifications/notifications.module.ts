@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { ImpactService } from '../impact/impact.service';
 import { MailService } from '../mail/mail.service';
 import { SupportService } from '../support/support.service';
+import { WaitlistService } from '../support/waitlist.service';
 import { OutboxPublisher } from '../realtime/outbox.publisher';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { NotificationsService } from './notifications.service';
@@ -12,6 +13,7 @@ import {
   ImpactController,
   NotificationsController,
   SupportController,
+  WaitlistController,
 } from './notifications.controller';
 
 /**
@@ -27,6 +29,7 @@ import {
     DevicesController,
     ImpactController,
     SupportController,
+    WaitlistController,
   ],
   providers: [
     NotificationsService,
@@ -34,6 +37,7 @@ import {
     NotificationsTasks,
     ImpactService,
     SupportService,
+    WaitlistService,
     MailService,
     OutboxPublisher,
     RealtimeGateway,

@@ -8,11 +8,15 @@ import '../../../shared/widgets/primary_button.dart';
 import '../../../shared/widgets/responsive_content.dart';
 
 class OrderSuccessPage extends StatelessWidget {
-  const OrderSuccessPage({super.key});
+  const OrderSuccessPage({required this.orderId, super.key});
+
+  final String orderId;
 
   @override
   Widget build(BuildContext context) {
-    final order = context.watch<AppState>().activeOrder;
+    // Siparişe kimliğiyle bakılır: kullanıcının aynı anda birden çok aktif
+    // siparişi olabilir ve `activeOrder` yanlışını gösterebilirdi.
+    final order = context.watch<AppState>().orderById(orderId);
     return Scaffold(
       backgroundColor: AppColors.forest,
       body: SafeArea(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import '../core/router/app_router.dart';
@@ -25,6 +26,20 @@ class _YePaketAppState extends State<YePaketApp> {
         title: 'YePaket',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
+
+        // Material bileşenleri (tarih seçici, metin seçimi, "Cancel")
+        // yerelleştirme olmadan İngilizce kalıyordu (O4).
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [Locale('tr', 'TR')],
+        // Uygulama yalnızca Türkçe: cihaz dili ne olursa olsun arayüz
+        // Türkçe kalır.
+        localeResolutionCallback: (_, supported) => supported.first,
+        locale: const Locale('tr', 'TR'),
+
         routerConfig: router,
       ),
     );

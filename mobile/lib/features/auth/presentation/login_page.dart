@@ -4,20 +4,37 @@ import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../data/state/app_state.dart';
+import '../../../core/network/api_config.dart';
+import '../../../shared/widgets/async_content.dart';
 import '../../../shared/widgets/brand_logo.dart';
 import '../../../shared/widgets/primary_button.dart';
 import '../../../shared/widgets/responsive_content.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  const LoginPage({this.returnTo, super.key});
+
+  /// Giriş öncesi gidilmek istenen ekran.
+  ///
+  /// Yönlendirici korumalı bir ekrana `?devam=` ekleyerek gönderir; değeri
+  /// route builder'ından parametre olarak alıyoruz. `GoRouterState.of(context)`
+  /// ile okumak, giriş sonrası ağaç yeniden kurulduğunda "There is no
+  /// GoRouterState above the current context" hatası veriyordu.
+  final String? returnTo;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final email = TextEditingController(text: 'demo@yepaket.app');
-  final password = TextEditingController(text: 'demo1234');
+  // Alanlar boş başlar: önceden doldurulmuş kimlik bilgileri üretimde
+  // kullanıcıyı yanıltır ve mağaza incelemesinde takılma sebebidir.
+  // Yalnızca dummy modda (yerel geliştirme) doldurulur.
+  final email = TextEditingController(
+    text: ApiConfig.dummyMode ? 'demo@yepaket.app' : '',
+  );
+  final password = TextEditingController(
+    text: ApiConfig.dummyMode ? 'demo1234' : '',
+  );
   bool loading = false;
 
   @override
@@ -28,15 +45,53 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> signInEmail() async {
+    if (loading) return;
     setState(() => loading = true);
-    await context.read<AppState>().signInWithEmail(email.text, password.text);
-    if (mounted) context.go('/home');
+
+    final result = await context.read<AppState>().signInWithEmail(
+      email.text,
+      password.text,
+    );
+
+    if (!mounted) return;
+    // Hata olsa da yükleme kapanır; eskiden buton kilitli kalıyordu (K3).
+    setState(() => loading = false);
+
+    switch (result) {
+      case Success():
+        context.go(_safeReturnTo(widget.returnTo));
+      case Failure(message: final message):
+        showErrorSnack(context, message);
+    }
   }
 
+  /// Sosyal giriş.
+  ///
+  /// Gerçek sağlayıcı SDK'sı bağlanana kadar geliştirme jetonu gönderilir;
+  /// sunucu bu jetonu yalnızca OAUTH_ALLOW_MOCK açıkken kabul eder ve bu
+  /// bayrak üretimde reddedilir.
   Future<void> signInProvider(String provider) async {
+    if (loading) return;
     setState(() => loading = true);
-    await context.read<AppState>().signInWithProvider(provider);
-    if (mounted) context.go('/home');
+
+    final idToken = ApiConfig.oauthDevToken.isEmpty
+        ? ''
+        : 'mock:${provider}_dev:${ApiConfig.oauthDevToken}';
+
+    final result = await context.read<AppState>().signInWithProvider(
+      provider,
+      idToken,
+    );
+
+    if (!mounted) return;
+    setState(() => loading = false);
+
+    switch (result) {
+      case Success():
+        context.go(_safeReturnTo(widget.returnTo));
+      case Failure(message: final message):
+        showErrorSnack(context, message);
+    }
   }
 
   @override
@@ -149,7 +204,9 @@ class _LoginPageState extends State<LoginPage> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
-                    onPressed: () {},
+                    onPressed: loading
+                        ? null
+                        : () => context.push('/sifremi-unuttum'),
                     child: const Text('Şifremi unuttum'),
                   ),
                 ),
@@ -161,7 +218,7 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(height: 18),
                 const Text(
-                  'Sosyal girişler ve e-posta akışı demo modundadır; gerçek sağlayıcıya istek göndermez.',
+                  'Giriş bilgilerin güvenli bağlantı üzerinden doğrulanır.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 11,
@@ -171,7 +228,7 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(height: 16),
                 TextButton(
-                  onPressed: () {},
+                  onPressed: loading ? null : () => context.push('/kayit'),
                   child: const Text('Hesabın yok mu? Ücretsiz kayıt ol'),
                 ),
               ],
@@ -222,4 +279,16 @@ class _SocialButton extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Dönülecek yolu doğrular.
+///
+/// Yalnızca uygulama içi göreli yollar kabul edilir: dışarıdan gelen mutlak
+/// bir URL açık yönlendirme (open redirect) olurdu.
+String _safeReturnTo(String? devam) {
+  if (devam == null || devam.isEmpty) return '/home';
+
+  final target = Uri.decodeComponent(devam);
+  if (!target.startsWith('/') || target.startsWith('//')) return '/home';
+  return target;
 }

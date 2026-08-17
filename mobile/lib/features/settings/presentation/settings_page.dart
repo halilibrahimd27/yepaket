@@ -3,7 +3,12 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../../core/network/api_config.dart';
+import '../../../data/models/models.dart';
 import '../../../data/state/app_state.dart';
+import '../../../shared/widgets/async_content.dart';
 import '../../../shared/widgets/responsive_content.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -14,12 +19,31 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  bool packageAlerts = true;
-  bool orderAlerts = true;
-  bool impactNews = false;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<AppState>().refreshNotificationPreferences();
+    });
+  }
+
+  /// Tercihi günceller; sunucu reddederse anahtar eski hâline döner.
+  Future<void> _update(NotificationPreferences next) async {
+    final result = await context.read<AppState>().updateNotificationPreferences(
+      next,
+    );
+
+    if (!mounted) return;
+    if (result case Failure(message: final message)) {
+      showErrorSnack(context, message);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    final user = state.user;
+    final prefs = state.notificationPreferences;
     return Scaffold(
       appBar: AppBar(title: const Text('Ayarlar')),
       body: ResponsiveContent(
@@ -30,20 +54,26 @@ class _SettingsPageState extends State<SettingsPage> {
             _Section(
               title: 'Hesap',
               children: [
-                const _SettingsTile(
+                _SettingsTile(
                   icon: Icons.person_outline_rounded,
                   title: 'Kişisel bilgiler',
-                  subtitle: 'Sefa GÜR · sefa@example.com',
+                  subtitle: user == null
+                      ? 'Giriş yapılmadı'
+                      : '${user.name} · ${user.email}',
                 ),
-                const _SettingsTile(
-                  icon: Icons.location_on_outlined,
-                  title: 'Konumlarım',
-                  subtitle: 'Kadıköy, İstanbul',
+                _SettingsTile(
+                  icon: Icons.lock_outline_rounded,
+                  title: 'Şifre değiştir',
+                  subtitle: 'Tüm cihazlardaki oturumlar kapanır',
+                  onTap: () => context.push('/sifremi-unuttum'),
                 ),
+                // Kart bilgisi uygulamada saklanmıyor: ödeme, sağlayıcının
+                // 3D Secure sayfasında alınıyor. Eskiden burada uydurma bir
+                // kart ("Visa •••• 4242") yazıyordu.
                 const _SettingsTile(
                   icon: Icons.credit_card_rounded,
-                  title: 'Ödeme yöntemleri',
-                  subtitle: 'Visa •••• 4242',
+                  title: 'Ödeme',
+                  subtitle: 'Kart bilgin uygulamada saklanmaz',
                 ),
               ],
             ),
@@ -52,31 +82,59 @@ class _SettingsPageState extends State<SettingsPage> {
               title: 'Bildirimler',
               children: [
                 SwitchListTile(
-                  value: packageAlerts,
-                  onChanged: (value) => setState(() => packageAlerts = value),
+                  value: prefs.bagAvailable,
+                  onChanged: user == null
+                      ? null
+                      : (value) =>
+                            _update(prefs.copyWith(bagAvailable: value)),
                   title: const Text(
                     'Favori paket uyarıları',
                     style: TextStyle(fontWeight: FontWeight.w800),
                   ),
+                  subtitle: const Text(
+                    'Favori işletmen yeni paket yayınladığında',
+                    style: TextStyle(fontSize: 11),
+                  ),
                   secondary: const Icon(Icons.favorite_border_rounded),
                 ),
                 SwitchListTile(
-                  value: orderAlerts,
-                  onChanged: (value) => setState(() => orderAlerts = value),
+                  value: prefs.orderUpdates,
+                  onChanged: user == null
+                      ? null
+                      : (value) =>
+                            _update(prefs.copyWith(orderUpdates: value)),
                   title: const Text(
                     'Sipariş hatırlatmaları',
                     style: TextStyle(fontWeight: FontWeight.w800),
                   ),
+                  subtitle: const Text(
+                    'Teslim saati yaklaştığında hatırlatırız',
+                    style: TextStyle(fontSize: 11),
+                  ),
                   secondary: const Icon(Icons.notifications_none_rounded),
                 ),
                 SwitchListTile(
-                  value: impactNews,
-                  onChanged: (value) => setState(() => impactNews = value),
+                  value: prefs.impactDigest,
+                  onChanged: user == null
+                      ? null
+                      : (value) =>
+                            _update(prefs.copyWith(impactDigest: value)),
                   title: const Text(
-                    'Etki haberleri',
+                    'Etki özeti',
                     style: TextStyle(fontWeight: FontWeight.w800),
                   ),
                   secondary: const Icon(Icons.eco_outlined),
+                ),
+                SwitchListTile(
+                  value: prefs.campaigns,
+                  onChanged: user == null
+                      ? null
+                      : (value) => _update(prefs.copyWith(campaigns: value)),
+                  title: const Text(
+                    'Kampanya ve duyurular',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  secondary: const Icon(Icons.campaign_outlined),
                 ),
               ],
             ),
@@ -95,10 +153,16 @@ class _SettingsPageState extends State<SettingsPage> {
                   subtitle: 'SSS ve destek',
                   onTap: () => context.push('/support'),
                 ),
-                const _SettingsTile(
+                _SettingsTile(
                   icon: Icons.privacy_tip_outlined,
                   title: 'Gizlilik ve koşullar',
-                  subtitle: 'Sürüm 1.0.0',
+                  subtitle: 'Kullanım koşulları, KVKK aydınlatma metni',
+                  onTap: () => _openLegal(context),
+                ),
+                const _SettingsTile(
+                  icon: Icons.info_outline_rounded,
+                  title: 'Sürüm',
+                  subtitle: ApiConfig.appVersion,
                 ),
               ],
             ),
@@ -170,4 +234,17 @@ class _SettingsTile extends StatelessWidget {
     ),
     trailing: const Icon(Icons.chevron_right_rounded, size: 19),
   );
+}
+
+/// Yasal metinleri web sitesinde açar.
+///
+/// Uygulama içinde tutmak yerine web'e yönlendiriyoruz: metinler hukuk
+/// tarafından güncellendiğinde uygulama sürümü beklemeden yayına girsin.
+Future<void> _openLegal(BuildContext context) async {
+  final url = Uri.parse('${ApiConfig.webUrl}/yasal');
+  final opened = await launchUrl(url, mode: LaunchMode.externalApplication);
+
+  if (!opened && context.mounted) {
+    showErrorSnack(context, 'Sayfa açılamadı: ${url.toString()}');
+  }
 }

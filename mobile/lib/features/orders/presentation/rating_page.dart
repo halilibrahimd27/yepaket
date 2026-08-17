@@ -1,23 +1,90 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../data/state/app_state.dart';
+import '../../../shared/widgets/async_content.dart';
 import '../../../shared/widgets/primary_button.dart';
 import '../../../shared/widgets/responsive_content.dart';
 
+/// Sunucunun kabul ettiği etiketler. Serbest metin yerine sabit liste
+/// kullanmak, işletme panelinde anlamlı bir dağılım göstermeyi mümkün kılar.
+const _ratingTags = [
+  'Lezzetli',
+  'İyi değer',
+  'Kolay teslim',
+  'Bol porsiyon',
+  'Güler yüzlü',
+];
+
 class RatingPage extends StatefulWidget {
-  const RatingPage({super.key});
+  const RatingPage({required this.orderId, super.key});
+
+  final String orderId;
 
   @override
   State<RatingPage> createState() => _RatingPageState();
 }
 
 class _RatingPageState extends State<RatingPage> {
-  int rating = 5;
-  final selected = <String>{'Lezzetli', 'İyi değer'};
+  final _commentController = TextEditingController();
+  final _selectedTags = <String>{};
+
+  int _rating = 5;
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_submitting) return;
+    setState(() => _submitting = true);
+
+    final result = await context.read<AppState>().rateOrder(
+      widget.orderId,
+      _rating,
+      tags: _selectedTags.toList(),
+      comment: _commentController.text.trim().isEmpty
+          ? null
+          : _commentController.text.trim(),
+    );
+
+    if (!mounted) return;
+    setState(() => _submitting = false);
+
+    switch (result) {
+      case Success():
+        showInfoSnack(context, 'Değerlendirmen için teşekkürler!');
+        context.go('/home');
+      case Failure(message: final message):
+        showErrorSnack(context, message);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final order = context.watch<AppState>().orderById(widget.orderId);
+
+    if (order == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Deneyimini değerlendir')),
+        body: AsyncContent(
+          isLoading: false,
+          error: null,
+          isEmpty: true,
+          emptyTitle: 'Sipariş bulunamadı',
+          emptyMessage: 'Yalnızca teslim aldığın siparişleri puanlayabilirsin.',
+          emptyIcon: Icons.receipt_long_outlined,
+          onRetry: () => context.go('/orders'),
+          builder: (_) => const SizedBox.shrink(),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('Deneyimini değerlendir')),
       body: ResponsiveContent(
@@ -40,7 +107,8 @@ class _RatingPageState extends State<RatingPage> {
             ),
             const SizedBox(height: 20),
             Text(
-              'Moda Fırını nasıldı?',
+              // İşletme adı siparişten gelir; eskiden "Moda Fırını" sabitti (O1).
+              '${order.bag.store} nasıldı?',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.headlineLarge,
             ),
@@ -55,9 +123,11 @@ class _RatingPageState extends State<RatingPage> {
               children: List.generate(
                 5,
                 (index) => IconButton(
-                  onPressed: () => setState(() => rating = index + 1),
+                  onPressed: _submitting
+                      ? null
+                      : () => setState(() => _rating = index + 1),
                   icon: Icon(
-                    index < rating
+                    index < _rating
                         ? Icons.star_rounded
                         : Icons.star_border_rounded,
                     color: const Color(0xFFF6B91C),
@@ -71,47 +141,41 @@ class _RatingPageState extends State<RatingPage> {
               spacing: 8,
               runSpacing: 8,
               alignment: WrapAlignment.center,
-              children:
-                  [
-                        'Lezzetli',
-                        'İyi değer',
-                        'Kolay teslim',
-                        'Bol porsiyon',
-                        'Güler yüzlü',
-                      ]
-                      .map(
-                        (label) => FilterChip(
-                          selected: selected.contains(label),
-                          label: Text(label),
-                          onSelected: (_) => setState(
-                            () => selected.contains(label)
-                                ? selected.remove(label)
-                                : selected.add(label),
-                          ),
-                        ),
-                      )
-                      .toList(),
+              children: _ratingTags
+                  .map(
+                    (label) => FilterChip(
+                      selected: _selectedTags.contains(label),
+                      label: Text(label),
+                      onSelected: _submitting
+                          ? null
+                          : (_) => setState(
+                              () => _selectedTags.contains(label)
+                                  ? _selectedTags.remove(label)
+                                  : _selectedTags.add(label),
+                            ),
+                    ),
+                  )
+                  .toList(),
             ),
             const SizedBox(height: 20),
-            const TextField(
+            TextField(
+              controller: _commentController,
               maxLines: 4,
-              decoration: InputDecoration(
+              maxLength: 500,
+              enabled: !_submitting,
+              decoration: const InputDecoration(
                 hintText: 'Eklemek istediğin bir not var mı? (isteğe bağlı)',
               ),
             ),
             const Spacer(),
             PrimaryButton(
               label: 'Değerlendirmeyi gönder',
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Teşekkürler! Değerlendirmen dummy veriye eklendi.',
-                    ),
-                  ),
-                );
-                context.go('/home');
-              },
+              loading: _submitting,
+              onPressed: _submitting ? null : _submit,
+            ),
+            TextButton(
+              onPressed: _submitting ? null : () => context.go('/home'),
+              child: const Text('Şimdi değil'),
             ),
           ],
         ),

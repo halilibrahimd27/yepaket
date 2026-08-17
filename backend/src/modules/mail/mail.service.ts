@@ -62,14 +62,50 @@ export class MailService implements OnModuleInit {
     `;
   }
 
-  async sendSupportAcknowledgement(to: string, name: string, ticketId: string): Promise<void> {
+  /**
+   * Şifre sıfırlama bağlantısı.
+   *
+   * Hem web hem derin bağlantı verilir: e-posta telefonda açılırsa uygulama,
+   * bilgisayarda açılırsa tarayıcı devreye girer.
+   */
+  async sendPasswordReset(
+    to: string,
+    name: string,
+    links: { webUrl: string; appUrl: string; ttlMinutes: number },
+  ): Promise<void> {
+    await this.send(
+      to,
+      'Şifreni sıfırla',
+      this.layout(
+        `Merhaba ${name},`,
+        `<p style="line-height:1.6">Şifreni sıfırlamak için aşağıdaki butona tıkla.
+         Bağlantı <strong>${links.ttlMinutes} dakika</strong> geçerli.</p>
+         <p style="margin:24px 0">
+           <a href="${links.webUrl}"
+              style="background:#0B3B2E;color:#C7F22B;text-decoration:none;
+                     padding:14px 28px;border-radius:999px;font-weight:700;
+                     display:inline-block">Şifremi sıfırla</a>
+         </p>
+         <p style="line-height:1.6;font-size:13px;color:#65736e">
+           Uygulamada açmak için:
+           <a href="${links.appUrl}" style="color:#0B3B2E">${links.appUrl}</a>
+         </p>
+         <p style="line-height:1.6;font-size:13px;color:#65736e">
+           Bu isteği sen yapmadıysan bu e-postayı yok sayabilirsin;
+           şifren değişmez.
+         </p>`,
+      ),
+    );
+  }
+
+  async sendSupportAcknowledgement(to: string, name: string, ticketNo: string): Promise<void> {
     await this.send(
       to,
       'Destek talebiniz alındı',
       this.layout(
         `Merhaba ${name},`,
         `<p style="line-height:1.6">Destek talebinizi aldık. Ekibimiz en kısa sürede dönüş yapacak.</p>
-         <p style="line-height:1.6;color:#65736e;font-size:13px">Talep numaranız: <strong>${ticketId}</strong></p>`,
+         <p style="line-height:1.6;color:#65736e;font-size:13px">Talep numaranız: <strong>${ticketNo}</strong></p>`,
       ),
     );
   }

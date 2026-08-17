@@ -21,6 +21,15 @@ export const envSchema = z
     PORT: port.default(8080),
     /** API'nin dışarıdan görünen kök adresi; e-posta ve webhook bağlantılarında kullanılır. */
     API_PUBLIC_URL: z.url().default('http://localhost:8080'),
+    /** Web uygulamasının kök adresi; şifre sıfırlama bağlantısı buraya gider. */
+    WEB_APP_URL: z.url().default('http://localhost:3000'),
+    /**
+     * Mobil uygulamanın derin bağlantı şeması.
+     *
+     * Şifre sıfırlama e-postası hem web bağlantısı hem bu şema ile gelir;
+     * telefonda açıldığında uygulamaya düşer.
+     */
+    MOBILE_DEEP_LINK_SCHEME: z.string().default('yepaket'),
     /** Virgülle ayrılmış izinli origin listesi. `*` yalnızca geliştirmede anlamlıdır. */
     CORS_ORIGINS: z.string().default('http://localhost:3000'),
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
@@ -34,6 +43,14 @@ export const envSchema = z
     /** Yenileme jetonu opaktır; bu sır yalnızca hash'lemede kullanılır. */
     JWT_REFRESH_SECRET: z.string().min(32),
     REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(60),
+    /**
+     * Şifre sıfırlama bağlantısının geçerlilik süresi (dakika).
+     *
+     * Kısa tutulur: e-posta kutusuna erişen biri eski bağlantıyı
+     * kullanabilmemeli. 30 dakika, kullanıcının e-postayı açıp işlemi
+     * tamamlaması için yeterli.
+     */
+    PASSWORD_RESET_TTL_MINUTES: z.coerce.number().int().positive().default(30),
 
     /**
      * Sosyal giriş istemci kimlikleri (virgülle ayrılmış).

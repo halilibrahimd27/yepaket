@@ -43,6 +43,7 @@ export class SupportService {
 
     const ticket = await this.prisma.supportTicket.create({
       data: {
+        ticketNo: await this.nextTicketNo(),
         userId,
         orderId: input.orderId,
         name: input.name,
@@ -53,15 +54,31 @@ export class SupportService {
       },
     });
 
-    await this.mail.sendSupportAcknowledgement(ticket.email, ticket.name, ticket.id);
+    await this.mail.sendSupportAcknowledgement(ticket.email, ticket.name, ticket.ticketNo);
 
-    this.logger.log(`Destek talebi oluşturuldu: ${ticket.id}`);
+    this.logger.log(`Destek talebi oluşturuldu: ${ticket.ticketNo}`);
 
     return {
       id: ticket.id,
+      ticketNo: ticket.ticketNo,
+      subject: ticket.subject,
+      category: ticket.category.toLowerCase(),
       status: ticket.status.toLowerCase(),
       createdAt: ticket.createdAt,
     };
+  }
+
+  /**
+   * İnsan tarafından okunabilir talep numarası: DT-000123.
+   *
+   * Dizi kullanılıyor çünkü "max+1" eşzamanlı iki talepte aynı numarayı
+   * üretir. Sipariş numarasıyla aynı desen, farklı önek.
+   */
+  private async nextTicketNo(): Promise<string> {
+    const [{ value }] = await this.prisma.$queryRaw<[{ value: bigint }]>`
+      SELECT nextval('support_ticket_no_seq') AS value
+    `;
+    return `DT-${String(value).padStart(6, '0')}`;
   }
 
   async byId(ticketId: string, userId: string) {
@@ -73,6 +90,7 @@ export class SupportService {
 
     return {
       id: ticket.id,
+      ticketNo: ticket.ticketNo,
       subject: ticket.subject,
       message: ticket.message,
       category: ticket.category.toLowerCase(),
@@ -90,6 +108,7 @@ export class SupportService {
 
     return tickets.map((ticket) => ({
       id: ticket.id,
+      ticketNo: ticket.ticketNo,
       subject: ticket.subject,
       category: ticket.category.toLowerCase(),
       status: ticket.status.toLowerCase(),

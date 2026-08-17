@@ -3,6 +3,9 @@ import { JwtModule } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { OAuthVerifierService } from './oauth-verifier.service';
+import { AuthTasks } from './auth.tasks';
+import { PasswordResetService } from './password-reset.service';
+import { SessionRevocationService } from './session-revocation.service';
 import { TokenService } from './token.service';
 
 /**
@@ -15,7 +18,14 @@ import { TokenService } from './token.service';
 @Module({
   imports: [JwtModule.register({ global: true })],
   controllers: [AuthController],
-  providers: [AuthService, TokenService, OAuthVerifierService],
-  exports: [AuthService, TokenService],
+  providers: [
+    AuthService,
+    TokenService,
+    PasswordResetService,
+    OAuthVerifierService,
+    SessionRevocationService,
+    AuthTasks,
+  ],
+  exports: [AuthService, TokenService, SessionRevocationService],
 })
 export class AuthModule {}

@@ -5,17 +5,76 @@ import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/state/app_state.dart';
 import '../../../shared/widgets/app_image.dart';
+import '../../../data/models/models.dart';
+import '../../../shared/widgets/async_content.dart';
 import '../../../shared/widgets/primary_button.dart';
 
-class BagDetailPage extends StatelessWidget {
+class BagDetailPage extends StatefulWidget {
   const BagDetailPage({required this.bagId, super.key});
   final String bagId;
 
   @override
+  State<BagDetailPage> createState() => _BagDetailPageState();
+}
+
+class _BagDetailPageState extends State<BagDetailPage> {
+  SurpriseBag? _bag;
+  String? _error;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  /// Paket listede yoksa sunucudan çekilir.
+  ///
+  /// Eskiden `firstWhere` doğrudan çağrılıyordu ve bilinmeyen kimlikte
+  /// uygulama çöküyordu — derin bağlantı veya eskimiş liste bunu tetikliyordu.
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    final result = await context.read<AppState>().loadBag(widget.bagId);
+
+    if (!mounted) return;
+
+    setState(() {
+      _loading = false;
+      switch (result) {
+        case Success(value: final bag):
+          _bag = bag;
+        case Failure(message: final message):
+          _error = message;
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final bag = state.bagById(bagId);
-    final favorite = state.favoriteIds.contains(bag.id);
+    final bag = _bag == null ? null : (state.bagById(_bag!.id) ?? _bag);
+
+    if (_loading || bag == null) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: AsyncContent(
+          isLoading: _loading,
+          error: _error,
+          isEmpty: bag == null && _error == null,
+          onRetry: _load,
+          emptyTitle: 'Paket bulunamadı',
+          emptyMessage: 'Bu paket kaldırılmış veya satışı sona ermiş olabilir.',
+          emptyIcon: Icons.shopping_bag_outlined,
+          builder: (_) => const SizedBox.shrink(),
+        ),
+      );
+    }
+
+    final favorite = bag.isFavorite;
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -83,7 +142,13 @@ class BagDetailPage extends StatelessWidget {
                         ? AppColors.danger
                         : AppColors.forest,
                   ),
-                  onPressed: () => state.toggleFavorite(bag.id),
+                  onPressed: () async {
+                    final result = await state.toggleFavorite(bag.id);
+                    if (!context.mounted) return;
+                    if (result case Failure(message: final message)) {
+                      showErrorSnack(context, message);
+                    }
+                  },
                   icon: Icon(
                     favorite
                         ? Icons.favorite_rounded
@@ -128,7 +193,7 @@ class BagDetailPage extends StatelessWidget {
                                       size: 19,
                                     ),
                                     Text(
-                                      ' ${bag.rating} (${bag.reviewCount})',
+                                      ' ${Formats.number(bag.rating)} (${bag.reviewCount})',
                                       style: const TextStyle(
                                         fontWeight: FontWeight.w800,
                                         color: AppColors.forest,
@@ -152,7 +217,7 @@ class BagDetailPage extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 Text(
-                                  '${bag.originalPrice} ₺',
+                                  bag.originalPriceLabel,
                                   style: const TextStyle(
                                     fontSize: 11,
                                     color: AppColors.muted,
@@ -160,7 +225,7 @@ class BagDetailPage extends StatelessWidget {
                                   ),
                                 ),
                                 Text(
-                                  '${bag.price} ₺',
+                                  bag.priceLabel,
                                   style: const TextStyle(
                                     fontSize: 25,
                                     fontWeight: FontWeight.w900,
@@ -285,8 +350,12 @@ class BagDetailPage extends StatelessWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 760),
             child: PrimaryButton(
-              label: 'Rezerve et · ${bag.price} ₺',
-              onPressed: () => context.push('/checkout/${bag.id}'),
+              label: bag.availableQuantity > 0
+                  ? 'Rezerve et · ${bag.priceLabel}'
+                  : 'Tükendi',
+              onPressed: bag.availableQuantity > 0
+                  ? () => context.push('/checkout/${bag.id}')
+                  : null,
             ),
           ),
         ),

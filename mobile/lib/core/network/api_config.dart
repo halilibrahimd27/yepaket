@@ -1,3 +1,7 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 abstract final class ApiConfig {
   static const productionBaseUrl = 'https://api.yepaket.app/v1';
   static const stagingBaseUrl = 'https://staging-api.yepaket.app/v1';
@@ -8,13 +12,35 @@ abstract final class ApiConfig {
     defaultValue: productionBaseUrl,
   );
 
-  static const dummyMode = bool.fromEnvironment(
-    'DUMMY_MODE',
-    defaultValue: true,
+  /// Web uygulamasının kök adresi; yasal metinler ve paylaşım bağlantıları
+  /// buradan gider.
+  static const webUrl = String.fromEnvironment(
+    'WEB_APP_URL',
+    defaultValue: 'https://yepaket.app',
   );
 
-  /// Defaults to OpenStreetMap for development and light demo traffic.
-  /// Override this at build time when using a production tile provider.
+  /// Ayarlar ekranında gösterilen sürüm.
+  ///
+  /// CI, `--dart-define=APP_VERSION=$(git describe)` ile gerçek sürümü
+  /// geçirir; destek talebinde hangi sürümün konuşulduğu önemli.
+  static const appVersion = String.fromEnvironment(
+    'APP_VERSION',
+    defaultValue: '1.0.0',
+  );
+
+  /// Sahte veriyle çalışma modu.
+  ///
+  /// Varsayılan **kapalı**: açık bırakılırsa yayına giden derleme sunucuya
+  /// hiç bağlanmaz ve kullanıcı uydurma paketler görür. Yerel geliştirme
+  /// `--dart-define=DUMMY_MODE=true` ile açıkça ister.
+  static const dummyMode = bool.fromEnvironment('DUMMY_MODE');
+
+  /// Harita döşemeleri.
+  ///
+  /// Varsayılan OpenStreetMap yalnızca geliştirme içindir: OSM'nin genel
+  /// sunucuları üretim uygulaması trafiğine kapalıdır (kullanım politikası).
+  /// Yayına çıkmadan önce `MAP_TILE_URL` ile ticari bir sağlayıcıya
+  /// (MapTiler, Stadia, Mapbox) çevrilmeli.
   static const mapTileUrl = String.fromEnvironment(
     'MAP_TILE_URL',
     defaultValue: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -24,12 +50,32 @@ abstract final class ApiConfig {
     'MAP_USER_AGENT',
     defaultValue: 'com.yepaket.yepaket',
   );
+
+  /// Gerçek sağlayıcı SDK'ları bağlanana kadar sosyal girişi denemek için
+  /// kullanılan geliştirme e-postası. Üretimde boş bırakılır ve sunucu
+  /// sahte jetonu zaten reddeder.
+  static const oauthDevToken = String.fromEnvironment('OAUTH_DEV_EMAIL');
+
+  /// Sunucunun beklediği platform değeri (`DevicePlatform` enum'ı).
+  ///
+  /// `kIsWeb` kontrolü önce gelmeli: `dart:io`'daki `Platform` web'de
+  /// erişildiğinde istisna fırlatır ve uygulama açılışta çökerdi.
+  static String get platform {
+    if (kIsWeb) return 'WEB';
+    if (Platform.isIOS) return 'IOS';
+    if (Platform.isAndroid) return 'ANDROID';
+    return 'WEB';
+  }
 }
 
 abstract final class ApiEndpoints {
   static const login = '/auth/login';
+  static const register = '/auth/register';
+  static const requestPasswordReset = '/auth/password-reset/request';
+  static const confirmPasswordReset = '/auth/password-reset/confirm';
   static const refresh = '/auth/refresh';
   static const me = '/auth/me';
+  static const notificationPreferences = '/auth/me/notification-preferences';
   static String oauth(String provider) => '/auth/oauth/$provider';
 
   static const nearbyBags = '/bags/nearby';
@@ -44,7 +90,19 @@ abstract final class ApiEndpoints {
   static String sharePickup(String id) => '/orders/$id/share-pickup';
   static String rating(String id) => '/orders/$id/rating';
 
+  static String pickupNonce(String id) => '/orders/$id/pickup-nonce';
+  static const logout = '/auth/logout';
+
   static const notifications = '/notifications';
+  static const unreadCount = '/notifications/unread-count';
+  static String markRead(String id) => '/notifications/$id/read';
+  static const pushToken = '/devices/push-token';
   static const impact = '/impact/me';
+  static const communityImpact = '/impact/community';
+  static const favorites = '/favorites';
   static const supportTickets = '/support/tickets';
+  static String store(String id) => '/stores/$id';
+
+  static const waitlist = '/waitlist';
+  static String waitlistCount(String feature) => '/waitlist/$feature/count';
 }

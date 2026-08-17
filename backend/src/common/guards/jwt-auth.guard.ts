@@ -11,6 +11,7 @@ import {
 import { AppError } from '../errors/app-error';
 import { ErrorCode } from '../errors/error-codes';
 import type { UserRole } from '../../generated/prisma/client';
+import { SessionRevocationService } from '../../modules/auth/session-revocation.service';
 
 /** Erişim jetonunun taşıdığı iddialar. */
 export interface AccessTokenPayload {
@@ -33,6 +34,7 @@ export class JwtAuthGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly jwt: JwtService,
     private readonly config: ConfigService<Env, true>,
+    private readonly revocations: SessionRevocationService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -79,6 +81,17 @@ export class JwtAuthGuard implements CanActivate {
         secret: this.config.get('JWT_ACCESS_SECRET', { infer: true }),
       });
 
+      // İmza geçerli olsa bile oturum iptal edilmiş olabilir: çıkış, şifre
+      // değişimi/sıfırlaması veya jeton hırsızlığı tespiti. İmza kontrolü
+      // tek başına yeterli olsaydı, iptalden sonra jeton süresi dolana
+      // kadar erişim sürerdi.
+      if (await this.revocations.isRevoked(payload.sid)) {
+        throw AppError.unauthenticated(
+          'Oturumun sonlandırıldı. Lütfen tekrar giriş yap.',
+          ErrorCode.SESSION_REVOKED,
+        );
+      }
+
       return {
         id: payload.sub,
         email: payload.email,
@@ -86,6 +99,10 @@ export class JwtAuthGuard implements CanActivate {
         sessionId: payload.sid,
       };
     } catch (error) {
+      // Kendi ürettiğimiz hata olduğu gibi geçer; aşağıdaki dönüşüm
+      // yalnızca jwt kütüphanesinin hataları içindir.
+      if (error instanceof AppError) throw error;
+
       const expired = error instanceof Error && error.name === 'TokenExpiredError';
       throw AppError.unauthenticated(
         expired ? 'Oturum süresi doldu.' : 'Geçersiz oturum bilgisi.',

@@ -21,6 +21,8 @@ export const ErrorCode = {
   REFRESH_TOKEN_INVALID: 'REFRESH_TOKEN_INVALID',
   /** Kullanılmış bir yenileme jetonu tekrar sunuldu — oturumlar iptal edildi. */
   REFRESH_TOKEN_REUSED: 'REFRESH_TOKEN_REUSED',
+  /** Oturum iptal edildi (çıkış, şifre değişimi/sıfırlaması, hırsızlık tespiti). */
+  SESSION_REVOKED: 'SESSION_REVOKED',
   OAUTH_VERIFICATION_FAILED: 'OAUTH_VERIFICATION_FAILED',
   ACCOUNT_DISABLED: 'ACCOUNT_DISABLED',
 

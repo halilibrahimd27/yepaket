@@ -12,13 +12,17 @@ import { ErrorCode } from '../../common/errors/error-codes';
 import type { AuthProvider } from '../../generated/prisma/client';
 import { AuthService } from './auth.service';
 import { TokenService } from './token.service';
+import { PasswordResetService } from './password-reset.service';
 import {
   ChangePasswordDto,
+  ConfirmPasswordResetDto,
   LoginDto,
+  NotificationPreferencesDto,
   OAUTH_PROVIDERS,
   OAuthLoginDto,
   RefreshDto,
   RegisterDto,
+  RequestPasswordResetDto,
   UpdateProfileDto,
   type OAuthProviderParam,
 } from './dto/auth.dto';
@@ -35,6 +39,7 @@ export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly tokens: TokenService,
+    private readonly passwordReset: PasswordResetService,
   ) {}
 
   /** İstek üst bilgilerinden oturum bağlamı çıkarır. */
@@ -51,6 +56,45 @@ export class AuthController {
   @ApiOperation({ summary: 'E-posta ve şifre ile yeni hesap oluşturur' })
   register(@Body() dto: RegisterDto, @Req() request: Request) {
     return this.auth.register(dto, this.meta(request));
+  }
+
+  /**
+   * Şifre sıfırlama bağlantısı ister.
+   *
+   * Sıkı hız sınırı: bu uç, bir e-posta adresine sınırsız posta göndermek
+   * için kullanılabilir. Dakikada 3 istek, gerçek kullanıcı için fazlasıyla
+   * yeterli.
+   */
+  @Post('password-reset/request')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @ApiOperation({
+    summary: 'Şifre sıfırlama bağlantısı gönderir',
+    description:
+      'Adres kayıtlı olsun olmasın aynı yanıt döner; kullanıcı sayımı engellenir.',
+  })
+  requestPasswordReset(@Body() dto: RequestPasswordResetDto, @Req() request: Request) {
+    return this.passwordReset.request(dto.email, { ipAddress: request.ip });
+  }
+
+  /**
+   * Hız sınırı burada isteğe göre daha gevşek (dakikada 10).
+   *
+   * Jetonun kaba kuvvetle bulunması zaten olanaksız (256 bit rastgele);
+   * sınırın amacı genel kötüye kullanım. Çok sıkı bir sınır ise şifre
+   * kurallarına takılıp birkaç kez deneyen gerçek kullanıcıyı kilitler.
+   */
+  @Post('password-reset/confirm')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiOperation({
+    summary: 'Jetonla yeni şifreyi kaydeder',
+    description: 'Başarılı olduğunda kullanıcının tüm oturumları kapatılır.',
+  })
+  confirmPasswordReset(@Body() dto: ConfirmPasswordResetDto) {
+    return this.passwordReset.confirm(dto.token, dto.newPassword);
   }
 
   @Post('login')
@@ -158,6 +202,26 @@ export class AuthController {
   })
   changePassword(@CurrentUser() user: AuthenticatedUser, @Body() dto: ChangePasswordDto) {
     return this.auth.changePassword(user.id, user.sessionId, dto);
+  }
+
+  @Get('me/notification-preferences')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Bildirim tercihlerini döndürür' })
+  notificationPreferences(@CurrentUser('id') userId: string) {
+    return this.auth.notificationPreferences(userId);
+  }
+
+  @Patch('me/notification-preferences')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Bildirim tercihlerini günceller',
+    description: 'Gönderilmeyen alan mevcut değerini korur.',
+  })
+  updateNotificationPreferences(
+    @CurrentUser('id') userId: string,
+    @Body() dto: NotificationPreferencesDto,
+  ) {
+    return this.auth.updateNotificationPreferences(userId, dto);
   }
 
   @Get('sessions')

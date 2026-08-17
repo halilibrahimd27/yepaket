@@ -14,7 +14,7 @@ class OrdersPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final completed = state.orderHistory;
+    final completed = state.pastOrders;
     return Scaffold(
       appBar: AppBar(title: const Text('Siparişlerim')),
       body: ResponsiveContent(
@@ -23,7 +23,7 @@ class OrdersPage extends StatelessWidget {
         child: ListView(
           children: [
             if (state.activeOrder != null &&
-                state.activeOrder!.status == OrderStatus.pickupPending) ...[
+                state.activeOrder!.status.isActive) ...[
               Text('Aktif', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 11),
               _OrderTile(
@@ -52,7 +52,11 @@ class OrdersPage extends StatelessWidget {
               ...completed.map(
                 (order) => Padding(
                   padding: const EdgeInsets.only(bottom: 11),
-                  child: _OrderTile(order: order, onTap: () {}),
+                  child: _OrderTile(
+                    order: order,
+                    // Teslim alınmış sipariş değerlendirmeye açılır.
+                    onTap: () => context.push('/rating/${order.id}'),
+                  ),
                 ),
               ),
           ],
@@ -115,18 +119,24 @@ class _OrderTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      active ? order.pickupLabel : 'Teslim edildi',
+                      // Durum okunmadan sabit metin yazmak, iptal edilen
+                      // siparişi "Teslim edildi" gösteriyordu (K4).
+                      active ? order.pickupLabel : order.status.label,
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
-                        color: active ? AppColors.limeDark : AppColors.muted,
+                        color: active
+                            ? AppColors.limeDark
+                            : order.status == OrderStatus.collected
+                                ? AppColors.limeDark
+                                : AppColors.muted,
                       ),
                     ),
                   ],
                 ),
               ),
               Text(
-                '${order.total} ₺',
+                order.totalLabel,
                 style: const TextStyle(
                   fontWeight: FontWeight.w900,
                   color: AppColors.forest,

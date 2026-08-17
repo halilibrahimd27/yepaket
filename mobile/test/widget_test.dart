@@ -24,16 +24,16 @@ void main() {
     await state.initialize();
 
     expect(state.filteredBags, isNotEmpty);
-    state.selectCategory(BagCategory.bakery);
+    await state.selectCategory(BagCategory.bakery);
     expect(
       state.filteredBags.every((bag) => bag.category == BagCategory.bakery),
       isTrue,
     );
 
     final bagId = state.filteredBags.first.id;
-    final wasFavorite = state.favoriteIds.contains(bagId);
+    final wasFavorite = state.bagById(bagId)?.isFavorite ?? false;
     await state.toggleFavorite(bagId);
-    expect(state.favoriteIds.contains(bagId), isNot(wasFavorite));
+    expect(state.bagById(bagId)?.isFavorite, isNot(wasFavorite));
   });
 
   testWidgets('uygulama onboarding ekranıyla açılır', (tester) async {
@@ -137,7 +137,7 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text('KADIKÖY CANLI'), findsOneWidget);
+    expect(find.text('HARİTADA CANLI'), findsOneWidget);
     expect(find.text('24 PAKET YAKININDA'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

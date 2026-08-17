@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { AppError } from '../../common/errors/app-error';
 import { Prisma, type NotificationType } from '../../generated/prisma/client';
+import type { NotificationPreferences } from '../auth/auth.service';
 import { PushService } from './push.service';
 
 export interface NotificationView {
@@ -109,6 +110,29 @@ export class NotificationsService {
     return { registered: true };
   }
 
+  /**
+   * Bildirim türünün hangi kullanıcı tercihine bağlı olduğu.
+   *
+   * `ORDER_STATUS` ve `PICKUP_REMINDER` işlemsel bildirimlerdir: kullanıcı
+   * kapatabilir ama kapattığında teslim saatini kaçırma riskini alır. Yine de
+   * seçim kullanıcınındır.
+   */
+  private static preferenceKey(type: NotificationType): keyof NotificationPreferences {
+    switch (type) {
+      case 'BAG_AVAILABLE':
+        return 'bagAvailable';
+      case 'ORDER_STATUS':
+      case 'PICKUP_REMINDER':
+        return 'orderUpdates';
+      case 'IMPACT':
+        return 'impactDigest';
+      case 'CAMPAIGN':
+      case 'SUPPORT':
+      default:
+        return 'campaigns';
+    }
+  }
+
   private async create(
     userId: string,
     type: NotificationType,
@@ -116,6 +140,18 @@ export class NotificationsService {
     body: string,
     data?: Prisma.InputJsonValue,
   ): Promise<void> {
+    // Kullanıcı bu türü kapattıysa hiç oluşturulmaz. Yalnızca push'u
+    // atlamak yetmezdi: uygulama içi listede yine görünürdü.
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { notificationPrefs: true },
+    });
+
+    const prefs = (user?.notificationPrefs ?? {}) as Partial<NotificationPreferences>;
+    // Kayıtlı değer yoksa açık kabul edilir: yeni bir tür eklendiğinde
+    // mevcut kullanıcılar sessizce dışarıda kalmasın.
+    if (prefs[NotificationsService.preferenceKey(type)] === false) return;
+
     await this.prisma.notification.create({
       data: { userId, type, title, body, data: data ?? {} },
     });
@@ -137,6 +173,16 @@ export class NotificationsService {
         .filter(([, value]) => value !== null && value !== undefined)
         .map(([key, value]) => [key, String(value)]),
     );
+  }
+
+  /**
+   * Kampanya/duyuru bildirimi.
+   *
+   * Yönetim panelinden ve zamanlanmış işlerden çağrılır; kullanıcı
+   * tercihlerine `create` içinde uyulur.
+   */
+  async notifyCampaign(userId: string, title: string, body: string): Promise<void> {
+    await this.create(userId, 'CAMPAIGN', title, body);
   }
 
   /** Sipariş durumu değiştiğinde kullanıcıyı bilgilendirir. */

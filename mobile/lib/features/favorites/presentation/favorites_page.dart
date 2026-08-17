@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -29,7 +30,8 @@ class FavoritesPage extends StatelessWidget {
                   ),
                 ),
                 IconButton.filledTonal(
-                  onPressed: () {},
+                  onPressed: () => context.push('/notifications'),
+                  tooltip: 'Bildirimler',
                   icon: const Icon(Icons.notifications_active_outlined),
                 ),
               ],

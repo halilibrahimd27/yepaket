@@ -1,11 +1,12 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsEmail, IsEnum, IsOptional, IsString, IsUUID, Length } from 'class-validator';
+import { IsEmail, IsEnum, IsIn, IsOptional, IsString, IsUUID, Length } from 'class-validator';
 import { CurrentUser, Public } from '../../common/decorators/auth.decorators';
 import { DevicePlatform, SupportCategory } from '../../generated/prisma/client';
 import { ImpactService } from '../impact/impact.service';
 import { SupportService } from '../support/support.service';
+import { WAITLIST_FEATURES, WaitlistService } from '../support/waitlist.service';
 import { NotificationsService } from './notifications.service';
 
 export class RegisterPushTokenDto {
@@ -59,6 +60,28 @@ export class CreateSupportTicketDto {
   @IsOptional()
   @IsUUID()
   orderId?: string;
+}
+
+export class JoinWaitlistDto {
+  @ApiProperty({ enum: WAITLIST_FEATURES })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim().toLowerCase() : value,
+  )
+  @IsIn(WAITLIST_FEATURES as unknown as string[])
+  feature!: string;
+
+  @ApiProperty()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim().toLowerCase() : value,
+  )
+  @IsEmail()
+  email!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(2, 80)
+  city?: string;
 }
 
 @ApiTags('notifications')
@@ -163,5 +186,30 @@ export class SupportController {
   @ApiOperation({ summary: 'Destek talebi detayı' })
   detail(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('id') userId: string) {
     return this.support.byId(id, userId);
+  }
+}
+
+/**
+ * Yayına alınmamış özellikler için ilgi kaydı.
+ *
+ * Giriş zorunlu değil: kullanıcı ürünü denemeden önce haber almak isteyebilir.
+ */
+@ApiTags('waitlist')
+@Controller('waitlist')
+export class WaitlistController {
+  constructor(private readonly waitlist: WaitlistService) {}
+
+  @Post()
+  @Public()
+  @ApiOperation({ summary: 'Bekleme listesine katılır' })
+  join(@Body() dto: JoinWaitlistDto, @CurrentUser('id') userId?: string) {
+    return this.waitlist.join(dto, userId);
+  }
+
+  @Get(':feature/count')
+  @Public()
+  @ApiOperation({ summary: 'Özelliğin bekleme listesi sayısı' })
+  count(@Param('feature') feature: string) {
+    return this.waitlist.count(feature);
   }
 }

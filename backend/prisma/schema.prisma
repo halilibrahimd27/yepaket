@@ -163,6 +163,13 @@ model User {
   locale       String    @default("tr-TR")
   timezone     String    @default("Europe/Istanbul")
 
+  /// Bildirim tercihleri.
+  ///
+  /// Ayrı tablo yerine JSON: alanlar yalnızca birlikte okunup yazılıyor ve
+  /// zamanla yeni bildirim türleri eklenecek. Eksik anahtar "açık" sayılır,
+  /// böylece yeni bir tür eklendiğinde eski kullanıcılar da alır.
+  notificationPrefs Json? @map("notification_prefs")
+
   emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz(3)
   lastLoginAt     DateTime? @map("last_login_at") @db.Timestamptz(3)
 
@@ -183,6 +190,8 @@ model User {
   ratings        Rating[]
   notifications  Notification[]
   supportTickets SupportTicket[]
+  waitlistEntries WaitlistEntry[]
+  passwordResetTokens PasswordResetToken[]
   auditLogs      AuditLog[]
 
   @@index([role])
@@ -647,7 +656,12 @@ model Notification {
 }
 
 model SupportTicket {
-  id      String  @id @default(uuid()) @db.Uuid
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Kullanıcının e-postada ve telefonda söyleyebileceği kısa referans.
+  /// UUID'yi telefonda okutmak pratik değil.
+  ticketNo String @unique @map("ticket_no")
+
   /// Giriş yapmamış kullanıcı da talep açabilir.
   userId  String? @map("user_id") @db.Uuid
   orderId String? @map("order_id") @db.Uuid
@@ -691,6 +705,56 @@ model PartnerApplication {
 
   @@index([status, createdAt])
   @@map("partner_applications")
+}
+
+/// Şifre sıfırlama jetonları.
+///
+/// Jetonun kendisi değil HMAC özeti saklanır: veritabanı sızsa bile
+/// jetonlar kullanılamaz. Yenileme jetonlarıyla aynı yaklaşım.
+model PasswordResetToken {
+  id        String @id @default(uuid()) @db.Uuid
+  userId    String @map("user_id") @db.Uuid
+  tokenHash String @unique @map("token_hash")
+
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  /// Kullanıldıktan sonra doldurulur; tek kullanımlıktır.
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+
+  /// Talebin geldiği IP — kötüye kullanım incelemesi için.
+  ipAddress String? @map("ip_address")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
+/// Henüz yayına alınmamış özellikler için ilgi kaydı.
+///
+/// "Kargoyla kurtar" gibi bir özelliği sahte ürünlerle göstermek yerine
+/// kullanıcıdan izin alıp haber vermeyi tercih ediyoruz. Aynı e-posta aynı
+/// özellik için bir kez kaydedilir.
+model WaitlistEntry {
+  id      String  @id @default(uuid()) @db.Uuid
+  feature String
+  email   String  @db.Citext
+  city    String?
+
+  /// Giriş yapmış kullanıcının kaydı ona bağlanır; anonim kayıtlarda boştur.
+  userId String? @map("user_id") @db.Uuid
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  /// Özellik yayına alındığında bilgilendirme gönderildi mi?
+  notifiedAt DateTime? @map("notified_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@unique([feature, email])
+  @@index([feature, createdAt])
+  @@map("waitlist_entries")
 }
 
 // ---------------------------------------------------------------------------

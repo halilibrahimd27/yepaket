@@ -15,12 +15,14 @@ class BagCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Favori durumu paketin kendi alanında geliyor; ayrıca liste tutmak
+    // iki kaynağın ayrışmasına yol açıyordu.
     final isFavorite = context.select<AppState, bool>(
-      (state) => state.favoriteIds.contains(bag.id),
+      (state) => state.bagById(bag.id)?.isFavorite ?? bag.isFavorite,
     );
     return Semantics(
       button: true,
-      label: '${bag.store}, ${bag.title}, ${bag.price} lira',
+      label: '${bag.store}, ${bag.title}, ${bag.priceLabel}',
       child: InkWell(
         onTap: () => context.push('/bag/${bag.id}'),
         borderRadius: BorderRadius.circular(26),
@@ -107,7 +109,7 @@ class BagCard extends StatelessWidget {
                     size: 17,
                   ),
                   Text(
-                    ' ${bag.rating}',
+                    ' ${Formats.number(bag.rating)}',
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w900,
@@ -149,7 +151,7 @@ class BagCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '${bag.originalPrice} ₺',
+                    bag.originalPriceLabel,
                     style: const TextStyle(
                       fontSize: 11,
                       color: AppColors.muted,
@@ -158,7 +160,7 @@ class BagCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 3),
                   Text(
-                    '${bag.price} ₺',
+                    bag.priceLabel,
                     style: const TextStyle(
                       fontSize: 21,
                       fontWeight: FontWeight.w900,
@@ -168,7 +170,7 @@ class BagCard extends StatelessWidget {
                   ),
                   const Spacer(),
                   Text(
-                    '${bag.distanceKm.toStringAsFixed(bag.distanceKm < 1 ? 2 : 1)} km',
+                    bag.distanceLabel ?? '',
                     style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
@@ -247,7 +249,7 @@ class BagCard extends StatelessWidget {
                     ),
                     SizedBox(height: dense ? 1 : 5),
                     Text(
-                      '${bag.price} ₺',
+                      bag.priceLabel,
                       style: TextStyle(
                         fontSize: dense ? 17 : 18,
                         height: 1.1,

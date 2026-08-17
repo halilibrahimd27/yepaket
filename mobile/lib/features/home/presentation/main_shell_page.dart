@@ -9,12 +9,27 @@ import '../../profile/presentation/profile_page.dart';
 class MainShellPage extends StatefulWidget {
   const MainShellPage({super.key});
 
+  /// Alt gezinme sekmesini değiştirir.
+  ///
+  /// Alt ekranlar (keşfet) kendi içindeki bağlantılardan haritaya geçebilsin
+  /// diye dışarı açılmıştır; ayrı bir durum yönetimi eklemek bu tek ihtiyaç
+  /// için fazla olurdu.
+  static void goToTab(BuildContext context, int index) {
+    context.findAncestorStateOfType<_MainShellPageState>()?.setTab(index);
+  }
+
   @override
   State<MainShellPage> createState() => _MainShellPageState();
 }
 
 class _MainShellPageState extends State<MainShellPage> {
   int index = 0;
+
+  void setTab(int value) {
+    if (value == index) return;
+    setState(() => index = value);
+  }
+
   final pages = const [
     DiscoverPage(),
     BrowsePage(),
