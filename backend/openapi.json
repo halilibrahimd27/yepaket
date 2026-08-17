@@ -2217,7 +2217,7 @@
     },
     "/v1/partner/orders": {
       "get": {
-        "description": "Müşteri adı maskelenir; teslimde eşleştirme için baş harf yeterlidir.",
+        "description": "En yeniden eskiye sıralanır ve sayfalanır. Müşteri adı maskelenir; teslimde eşleştirme için baş harf yeterlidir.",
         "operationId": "PartnerController_listOrders",
         "parameters": [
           {
@@ -2242,6 +2242,22 @@
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
             }
           }
         ],

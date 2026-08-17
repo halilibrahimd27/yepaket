@@ -402,7 +402,13 @@ export class PartnerService {
 
   async listOrders(
     user: AuthenticatedUser,
-    filters: { storeId?: string; status?: string; date?: string } = {},
+    filters: {
+      storeId?: string;
+      status?: string;
+      date?: string;
+      page?: number;
+      limit?: number;
+    } = {},
   ) {
     const store = filters.storeId
       ? await this.access.requireStore(user, filters.storeId)
@@ -426,8 +432,12 @@ export class PartnerService {
         createdAt: dayFilter,
       },
       include: { bag: true, user: { select: { name: true } } },
-      orderBy: { pickupStartsAt: 'asc' },
-      take: 200,
+      // En yeniden eskiye. Eskiden `asc` idi ve 200 kayıtla sınırlıydı:
+      // 200'ü geçen bir işletmede YENİ siparişler panelde hiç görünmüyordu —
+      // personel teslim kodunu bulamıyordu.
+      orderBy: { pickupStartsAt: 'desc' },
+      take: Math.min(filters.limit ?? 100, 200),
+      skip: ((filters.page ?? 1) - 1) * Math.min(filters.limit ?? 100, 200),
     });
 
     return orders.map((order) => ({

@@ -10,6 +10,7 @@ import '../../../data/models/models.dart';
 import '../../../data/state/app_state.dart';
 import '../../../shared/widgets/async_content.dart';
 import '../../../shared/widgets/responsive_content.dart';
+import 'account_sheets.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -60,12 +61,26 @@ class _SettingsPageState extends State<SettingsPage> {
                   subtitle: user == null
                       ? 'Giriş yapılmadı'
                       : '${user.name} · ${user.email}',
+                  // Sunucudaki PATCH /auth/me ucu baştan beri hazırdı ama
+                  // hiçbir istemci çağırmıyordu; satır ok gösterip hiçbir
+                  // şey yapmıyordu.
+                  onTap: user == null ? null : () => showProfileSheet(context),
                 ),
                 _SettingsTile(
                   icon: Icons.lock_outline_rounded,
                   title: 'Şifre değiştir',
-                  subtitle: 'Tüm cihazlardaki oturumlar kapanır',
-                  onTap: () => context.push('/sifremi-unuttum'),
+                  subtitle: 'Diğer cihazlardaki oturumlar kapanır',
+                  // Oturumu açık kullanıcıyı e-posta ile sıfırlamaya
+                  // göndermek gereksiz; sunucuda oturum içi değişim ucu var.
+                  onTap: user == null
+                      ? null
+                      : () => showChangePasswordSheet(context),
+                ),
+                _SettingsTile(
+                  icon: Icons.devices_rounded,
+                  title: 'Cihazlarım',
+                  subtitle: 'Açık oturumları gör ve kapat',
+                  onTap: user == null ? null : () => showSessionsSheet(context),
                 ),
                 // Kart bilgisi uygulamada saklanmıyor: ödeme, sağlayıcının
                 // 3D Secure sayfasında alınıyor. Eskiden burada uydurma bir
@@ -164,6 +179,22 @@ class _SettingsPageState extends State<SettingsPage> {
               ],
             ),
             const SizedBox(height: 22),
+            if (user != null)
+              TextButton.icon(
+                onPressed: () => confirmDeleteAccount(context),
+                icon: const Icon(
+                  Icons.person_off_outlined,
+                  color: AppColors.danger,
+                ),
+                label: const Text(
+                  'Hesabımı kapat',
+                  style: TextStyle(color: AppColors.danger),
+                ),
+                style: TextButton.styleFrom(
+                  minimumSize: const Size.fromHeight(50),
+                ),
+              ),
+            const SizedBox(height: 6),
             OutlinedButton.icon(
               onPressed: () async {
                 await context.read<AppState>().signOut();
@@ -229,7 +260,11 @@ class _SettingsTile extends StatelessWidget {
       subtitle,
       style: const TextStyle(fontSize: 10, color: AppColors.muted),
     ),
-    trailing: const Icon(Icons.chevron_right_rounded, size: 19),
+    // Ok yalnızca satır gerçekten bir yere götürüyorsa gösterilir; aksi
+    // hâlde tıklanabilir görünüp hiçbir şey yapmayan satırlar oluşuyordu.
+    trailing: onTap == null
+        ? null
+        : const Icon(Icons.chevron_right_rounded, size: 19),
   );
 }
 

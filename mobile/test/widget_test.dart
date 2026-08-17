@@ -138,7 +138,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('HARİTADA CANLI'), findsOneWidget);
-    expect(find.text('24 PAKET YAKININDA'), findsOneWidget);
+    // Sayaç artık gerçek paket sayısından geliyor; sabit "24" değil.
+    expect(
+      find.text('${DummyData.bags.length} PAKET YAKININDA'),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 }

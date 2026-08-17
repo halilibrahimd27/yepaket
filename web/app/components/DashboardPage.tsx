@@ -12,8 +12,10 @@ import {
   LayoutDashboard,
   Leaf,
   LogOut,
+  Pencil,
   Menu,
   PackagePlus,
+  Trash2,
   PackageSearch,
   Plus,
   Search,
@@ -115,6 +117,7 @@ export function DashboardPage({
   const [tab, setTab] = useState<PanelTab>("Genel Bakış");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [stockEdit, setStockEdit] = useState<PartnerBag | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -193,6 +196,11 @@ export function DashboardPage({
           <BagsPanel
             bags={bags}
             busyKey={busyKey}
+            onEditStock={(bag) => setStockEdit(bag)}
+            onDelete={async (bag) => {
+              if (!window.confirm(`"${bag.title}" paketi silinsin mi?`)) return;
+              await runAction(`bag-${bag.id}`, `/partner/bags/${bag.id}`, "DELETE");
+            }}
             onToggle={(bag, publish) =>
               runAction(`bag-${bag.id}`, `/partner/bags/${bag.id}/${publish ? "publish" : "pause"}`, "POST")
             }
@@ -220,6 +228,24 @@ export function DashboardPage({
           />
         )}
       </main>
+
+      {stockEdit && (
+        <StockEditModal
+          bag={stockEdit}
+          busy={busyKey === `bag-${stockEdit.id}`}
+          close={() => setStockEdit(null)}
+          onSave={async (payload) => {
+            const ok = await runAction(
+              `bag-${stockEdit.id}`,
+              `/partner/bags/${stockEdit.id}`,
+              "PATCH",
+              payload,
+            );
+            if (ok) setStockEdit(null);
+            return ok;
+          }}
+        />
+      )}
 
       {createOpen && (
         <CreateBagModal
@@ -313,6 +339,17 @@ function AdminHeader({
               className="hidden h-10 items-center gap-2 rounded-[10px] bg-[var(--lime)] px-4 text-xs font-black text-[var(--forest)] transition hover:bg-white sm:flex"
             >
               Yeni paket <ArrowUpRight size={15} aria-hidden="true" />
+            </button>
+
+            {/* Çıkış yalnızca mobil menü katmanının içindeydi; masaüstünde
+                o katman hiç açılmadığı için oturumu kapatmanın yolu yoktu. */}
+            <button
+              onClick={onLogout}
+              title="Çıkış yap"
+              aria-label="Çıkış yap"
+              className="hidden h-10 w-10 place-items-center rounded-[10px] border border-white/10 text-white/75 transition hover:border-white/25 hover:text-white lg:grid"
+            >
+              <LogOut size={17} aria-hidden="true" />
             </button>
 
             <button
@@ -689,11 +726,15 @@ function BagsPanel({
   bags,
   busyKey,
   onToggle,
+  onEditStock,
+  onDelete,
   setCreateOpen,
 }: {
   bags: PartnerBag[];
   busyKey: string | null;
   onToggle: (bag: PartnerBag, publish: boolean) => void;
+  onEditStock: (bag: PartnerBag) => void;
+  onDelete: (bag: PartnerBag) => void;
   setCreateOpen: (value: boolean) => void;
 }) {
   return (
@@ -783,7 +824,7 @@ function BagsPanel({
                     </div>
                   </div>
 
-                  <div className="mt-4 flex items-center justify-between">
+                  <div className="mt-4 flex items-center justify-between gap-3">
                     <span
                       className={`inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[.1em] ${
                         published ? "text-[var(--lime-dark)]" : "text-[var(--muted)]"
@@ -792,6 +833,35 @@ function BagsPanel({
                       <span className={`h-2 w-2 rounded-full ${published ? "bg-[var(--lime-dark)]" : "bg-black/20"}`} />
                       {published ? "Yayında" : bag.status === "sold_out" ? "Tükendi" : "Durduruldu"}
                     </span>
+
+                    {/* Güncelleme ve silme uçları vekilin izin listesinde
+                        baştan beri vardı ama hiçbir arayüz öğesi çağırmıyordu:
+                        işletme yanlış girdiği stoğu düzeltemiyor, yanlışlıkla
+                        açtığı paketi kaldıramıyordu. */}
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => onEditStock(bag)}
+                        disabled={busy}
+                        title="Stoğu güncelle"
+                        aria-label={`${bag.title} paketinin stoğunu güncelle`}
+                        className="grid h-8 w-8 place-items-center rounded-[9px] border border-[var(--line)] text-[var(--forest)] transition hover:bg-[var(--lime-soft)] disabled:opacity-50"
+                      >
+                        <Pencil size={14} aria-hidden="true" />
+                      </button>
+                      <button
+                        onClick={() => onDelete(bag)}
+                        disabled={busy || bag.sold_quantity > 0}
+                        title={
+                          bag.sold_quantity > 0
+                            ? "Satış yapılmış paket silinemez"
+                            : "Paketi sil"
+                        }
+                        aria-label={`${bag.title} paketini sil`}
+                        className="grid h-8 w-8 place-items-center rounded-[9px] border border-[var(--line)] text-[#b23b2f] transition hover:bg-[#fdecec] disabled:opacity-40"
+                      >
+                        <Trash2 size={14} aria-hidden="true" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </article>
@@ -1549,6 +1619,95 @@ function CreateBagModal({
           </form>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Stok ve fiyat düzeltme.
+ *
+ * `PATCH /partner/bags/{id}` ucu vekilin izin listesinde vardı ama hiçbir
+ * arayüz öğesi çağırmıyordu: yanlış girilen stok ancak paketi silip yeniden
+ * oluşturarak düzeltilebiliyordu.
+ */
+function StockEditModal({
+  bag,
+  busy,
+  close,
+  onSave,
+}: {
+  bag: PartnerBag;
+  busy: boolean;
+  close: () => void;
+  onSave: (payload: Record<string, unknown>) => Promise<boolean>;
+}) {
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+
+    const form = new FormData(event.currentTarget);
+    const quantity = Number(form.get("totalQuantity") ?? 0);
+
+    // Sunucu satılan adedin altına düşürmeyi zaten reddediyor; burada
+    // kesmek kullanıcıyı gereksiz bir ağ turundan kurtarır.
+    if (quantity < bag.sold_quantity) {
+      setError(`Bu paketten ${bag.sold_quantity} adet satıldı; daha azına düşüremezsin.`);
+      return;
+    }
+
+    await onSave({ totalQuantity: quantity });
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] grid place-items-center bg-black/50 p-4">
+      <form
+        onSubmit={submit}
+        className="w-full max-w-md rounded-[24px] bg-white p-6 sm:p-7"
+      >
+        <h2 className="text-xl font-black tracking-[-.03em] text-[var(--forest)]">
+          Stoğu güncelle
+        </h2>
+        <p className="mt-1 text-xs text-[var(--muted)]">{bag.title}</p>
+
+        <label className="form-label mt-5">
+          Toplam adet
+          <input
+            name="totalQuantity"
+            type="number"
+            min={bag.sold_quantity}
+            max={999}
+            required
+            // Sunucu yanıtında toplam adet yok; kalan + satılan ondan
+            // türetilir ve ikisi de aynı yanıtta geliyor.
+            defaultValue={bag.available_quantity + bag.sold_quantity}
+            className="form-input"
+          />
+        </label>
+        <p className="mt-2 text-[11px] text-[var(--muted)]">
+          {bag.sold_quantity} adet satıldı · şu an {bag.available_quantity} adet
+          satışta.
+        </p>
+
+        {error && (
+          <div
+            role="alert"
+            className="mt-4 rounded-2xl bg-[#FDECEC] px-4 py-3 text-xs font-bold text-[#B4231F]"
+          >
+            {error}
+          </div>
+        )}
+
+        <div className="mt-6 flex justify-end gap-3">
+          <button type="button" onClick={close} className="px-4 py-3 text-sm font-black text-[var(--muted)]">
+            Vazgeç
+          </button>
+          <button disabled={busy} className="admin-primary-button disabled:opacity-60">
+            {busy ? "Kaydediliyor..." : "Kaydet"}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

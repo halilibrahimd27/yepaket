@@ -48,6 +48,8 @@ dependencies:
   share_plus: ^11.0.0
   app_links: ^6.4.0
   geolocator: ^14.0.2
+  google_sign_in: ^7.2.0
+  sign_in_with_apple: ^7.0.1
   socket_io_client: ^3.1.2
   firebase_core: ^4.1.1
   firebase_messaging: ^16.0.2

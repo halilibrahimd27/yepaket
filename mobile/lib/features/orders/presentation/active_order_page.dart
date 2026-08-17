@@ -92,21 +92,26 @@ class _ActiveOrderPageState extends State<ActiveOrderPage> {
                   color: AppColors.lime,
                   borderRadius: BorderRadius.circular(27),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.schedule_rounded,
                       color: AppColors.forest,
                       size: 29,
                     ),
-                    SizedBox(width: 13),
+                    const SizedBox(width: 13),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Teslim aralığı açık',
-                            style: TextStyle(
+                            // Sabit metin yazıyordu; teslim aralığı kapalıyken
+                            // de "açık" görünüyor ve kullanıcıyı boşuna
+                            // mağazaya gönderiyordu.
+                            order.isPickupAvailable
+                                ? 'Teslim aralığı açık'
+                                : 'Teslim aralığı henüz açılmadı',
+                            style: const TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.w900,
                               color: AppColors.forest,

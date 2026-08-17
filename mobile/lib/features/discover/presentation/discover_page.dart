@@ -86,10 +86,9 @@ class DiscoverPage extends StatelessWidget {
                           ),
                         ),
                       ),
-                      IconButton.filledTonal(
+                      _NotificationBell(
+                        unread: state.unreadNotificationCount,
                         onPressed: () => context.push('/notifications'),
-                        icon: const Icon(Icons.notifications_none_rounded),
-                        tooltip: 'Bildirimler',
                       ),
                     ],
                   ),
@@ -187,11 +186,11 @@ class DiscoverPage extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          const Text(
                             'Her paket bir fark.',
                             style: TextStyle(
                               fontSize: 22,
@@ -199,10 +198,16 @@ class DiscoverPage extends StatelessWidget {
                               color: Colors.white,
                             ),
                           ),
-                          SizedBox(height: 7),
+                          const SizedBox(height: 7),
                           Text(
-                            'Topluluk bugün 1.204 kg CO₂e önledi.',
-                            style: TextStyle(
+                            // Sabit "1.204 kg" yazıyordu; sunucuda
+                            // /impact/community ucu baştan beri vardı.
+                            state.communityImpact == null
+                                ? 'Topluluk her gün gıdayı çöpten kurtarıyor.'
+                                : 'Topluluk şimdiye kadar '
+                                      '${state.communityImpact!.co2Label} '
+                                      'CO₂e önledi.',
+                            style: const TextStyle(
                               fontSize: 12,
                               color: Colors.white60,
                             ),
@@ -365,5 +370,54 @@ Future<void> _handleLocationTap(BuildContext context, AppState state) async {
           'Konum alınamadı. Şehir genelindeki paketleri gösteriyoruz.',
         );
       }
+  }
+}
+
+/// Okunmamış sayısını rozetle gösteren bildirim zili.
+///
+/// Sunucu `/notifications/unread-count` ucunu özellikle rozet için sunuyordu
+/// ama hiçbir ekran çağırmıyordu: kullanıcı bildirimler sayfasını açmadan
+/// yeni bir şey olduğunu anlayamıyordu.
+class _NotificationBell extends StatelessWidget {
+  const _NotificationBell({required this.unread, required this.onPressed});
+
+  final int unread;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        IconButton.filledTonal(
+          onPressed: onPressed,
+          tooltip: 'Bildirimler',
+          icon: const Icon(Icons.notifications_none_rounded),
+        ),
+        if (unread > 0)
+          Positioned(
+            right: 2,
+            top: 2,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              constraints: const BoxConstraints(minWidth: 18),
+              decoration: BoxDecoration(
+                color: AppColors.danger,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: AppColors.cream, width: 1.5),
+              ),
+              child: Text(
+                unread > 9 ? '9+' : '$unread',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
   }
 }

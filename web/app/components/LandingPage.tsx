@@ -25,6 +25,7 @@ import {
   X,
 } from "lucide-react";
 import { SiAppstore, SiGoogleplay } from "react-icons/si";
+import { useRouter } from "next/navigation";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   formatDistance,
@@ -103,8 +104,13 @@ export function LandingPage({
   const root = useRef<HTMLDivElement>(null);
   const [category, setCategory] = useState("Tümü");
   const [query, setQuery] = useState("");
-  const [favorites, setFavorites] = useState<string[]>([]);
+  // Başlangıç değeri sunucudan gelir: giriş yapmış kullanıcının favorileri
+  // sayfa açılır açılmaz doğru görünür.
+  const [favorites, setFavorites] = useState<string[]>(() =>
+    bags.filter((bag) => bag.is_favorite).map((bag) => bag.id),
+  );
   const [selectedBag, setSelectedBag] = useState<Bag | null>(null);
+  const router = useRouter();
   const [openFaq, setOpenFaq] = useState(0);
   // Sunucudan gelen yönlendirme bilgisi ilk değer olur; kullanıcı kapatınca
   // veya başka bir işlem bildirimi geldiğinde değişir.
@@ -217,14 +223,53 @@ export function LandingPage({
     };
   }, []);
 
-  function toggleFavorite(id: string) {
-    setFavorites((items) => items.includes(id) ? items.filter((item) => item !== id) : [...items, id]);
+  /**
+   * Favoriye ekler/çıkarır.
+   *
+   * Eskiden yalnızca bileşen içi bir diziyi değiştiriyordu: sayfa
+   * yenilendiğinde favori kayboluyor, mobil uygulamada hiç görünmüyordu.
+   * Artık sunucuya yazılıyor; giriş yoksa kullanıcı girişe yönlendiriliyor.
+   */
+  async function toggleFavorite(id: string) {
+    const next = !favorites.includes(id);
+
+    // İyimser güncelleme: dokunuş anında geri bildirim verilir.
+    setFavorites((items) => (next ? [...items, id] : items.filter((item) => item !== id)));
+
+    const response = await fetch("/api/favorites", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bagId: id, favorite: next }),
+    });
+
+    if (response.ok) return;
+
+    // Başarısızsa geri alınır; yanlış bir durumu kalıcı göstermek yanıltıcı.
+    setFavorites((items) => (next ? items.filter((item) => item !== id) : [...items, id]));
+
+    if (response.status === 401) {
+      router.push(`/giris?devam=${encodeURIComponent("/")}`);
+      return;
+    }
+
+    setNotice("Favori kaydedilemedi. Lütfen tekrar dene.");
+    window.setTimeout(() => setNotice(""), 3200);
   }
 
+  /**
+   * Paketi rezerve et.
+   *
+   * Web'de ödeme akışı yok (mobil uygulamaya yönlendiriyoruz), ama düğme
+   * hiçbir şey yapmadan yalnızca bir bildirim gösteriyordu. Artık kullanıcıyı
+   * uygulama indirme bölümüne götürüyor.
+   */
   function reserveBag() {
     if (!selectedBag) return;
-    setNotice(`${selectedBag.title} mobil uygulamada rezerve edilmeye hazır.`);
     setSelectedBag(null);
+
+    // Bölüm sayfada; yumuşak kaydırma kullanıcının bağlamını korur.
+    document.getElementById("uygulama")?.scrollIntoView({ behavior: "smooth" });
+    setNotice(`${selectedBag.title} için mobil uygulamayı indir.`);
     window.setTimeout(() => setNotice(""), 3200);
   }
 

@@ -80,6 +80,7 @@ class AppState extends ChangeNotifier {
 
   StreamSubscription<RealtimeEvent>? _realtimeSubscription;
   StreamSubscription<String>? _pushTokenSubscription;
+  StreamSubscription<Object?>? _pushMessageSubscription;
 
   AppUser? user;
   bool onboardingSeen = false;
@@ -147,14 +148,20 @@ class AppState extends ChangeNotifier {
     }
 
     await refreshBags();
+    await refreshCommunityImpact();
+
     if (isAuthenticated) {
       await Future.wait([
         refreshOrders(),
         refreshFavorites(),
         refreshImpact(),
         refreshNotificationPreferences(),
+        refreshUnreadCount(),
       ]);
       await _startRealtime();
+      // Oturumu zaten açık kullanıcı için de gerekli: jeton yalnızca giriş
+      // anında kaydedilseydi, uygulamayı yeniden kuran veya jetonu yenilenen
+      // kullanıcıya bildirim gitmezdi.
       await _registerPushToken();
     }
   }
@@ -207,6 +214,8 @@ class AppState extends ChangeNotifier {
     _realtimeSubscription = null;
     await _pushTokenSubscription?.cancel();
     _pushTokenSubscription = null;
+    await _pushMessageSubscription?.cancel();
+    _pushMessageSubscription = null;
     await realtime?.disconnect();
   }
 
@@ -246,6 +255,13 @@ class AppState extends ChangeNotifier {
     // Jeton yenilendiğinde sessizce bildirim kesilmesin.
     await _pushTokenSubscription?.cancel();
     _pushTokenSubscription = service.onTokenRefresh.listen(_sendPushToken);
+
+    // Uygulama açıkken gelen bildirim listeye düşsün: aksi hâlde kullanıcı
+    // bildirimler ekranını açana kadar yeni bildirimi hiç görmezdi.
+    await _pushMessageSubscription?.cancel();
+    _pushMessageSubscription = service.onMessage.listen((_) {
+      refreshNotifications();
+    });
   }
 
   Future<void> _sendPushToken(String token) async {
@@ -367,6 +383,58 @@ class AppState extends ChangeNotifier {
     ]);
     await _startRealtime();
     await _registerPushToken();
+  }
+
+  /// Profil bilgilerini günceller.
+  Future<Result<AppUser>> updateProfile({String? name, String? phone}) async {
+    return _guard(() async {
+      user = await authRepository.updateProfile(name: name, phone: phone);
+      notifyListeners();
+      return user!;
+    });
+  }
+
+  /// Oturum içi şifre değişimi.
+  ///
+  /// Şifre sıfırlamadan farkı: mevcut şifreyi bilmek gerekir ve kullanıcı
+  /// bu cihazda oturumda kalır. Diğer cihazlar çıkış yapar.
+  Future<Result<void>> changePassword(
+    String currentPassword,
+    String newPassword,
+  ) =>
+      _guard(() => authRepository.changePassword(currentPassword, newPassword));
+
+  /// Açık oturumları listeler.
+  Future<Result<List<UserSession>>> sessions() =>
+      _guard(() => authRepository.sessions());
+
+  /// Belirli bir cihazın oturumunu kapatır.
+  Future<Result<void>> revokeSession(String sessionId) =>
+      _guard(() => authRepository.revokeSession(sessionId));
+
+  /// Tüm cihazlardan çıkış yapar.
+  Future<Result<void>> logoutEverywhere() async {
+    final result = await _guard(() => authRepository.logoutEverywhere());
+    if (result is Success) await _clearSession();
+    return result;
+  }
+
+  /// Hesabı kapatır (KVKK). Geri alınamaz.
+  Future<Result<void>> deleteAccount() async {
+    final result = await _guard(() => authRepository.deleteAccount());
+    if (result is Success) await _clearSession();
+    return result;
+  }
+
+  Future<void> _clearSession() async {
+    await _stopRealtime();
+    user = null;
+    orders = <AppOrder>[];
+    favoriteBags = <SurpriseBag>[];
+    notifications = <AppNotification>[];
+    supportTickets = <SupportTicket>[];
+    _serverImpact = null;
+    notifyListeners();
   }
 
   Future<void> signOut() async {
@@ -553,6 +621,19 @@ class AppState extends ChangeNotifier {
     });
   }
 
+  /// Siparişin sunucudaki güncel durumunu okur.
+  ///
+  /// `confirmPayment`ten farkı: yan etkisi yok. Ödeme sağlayıcısı henüz
+  /// dönmemişse `confirmPayment` siparişi BAŞARISIZ işaretleyip rezervasyonu
+  /// serbest bırakır — kullanıcı hâlâ kart bilgisini giriyor olabilir.
+  Future<Result<AppOrder>> refreshOrder(String orderId) async {
+    return _guard(() async {
+      final order = await orderRepository.byId(orderId);
+      _replaceOrder(order);
+      return order;
+    });
+  }
+
   Future<Result<AppOrder>> confirmPayment(String orderId) async {
     return _guard(() async {
       final order = await orderRepository.confirmPayment(orderId);
@@ -608,6 +689,9 @@ class AppState extends ChangeNotifier {
 
   UserImpact? _serverImpact;
 
+  /// Topluluk toplam etkisi — tanıtım kartında gösterilir.
+  UserImpact? communityImpact;
+
   /// Sunucudan gelen etki özeti; yoksa yerel siparişlerden hesaplanır.
   ///
   /// Sunucu tüm geçmişi bilir, istemci yalnızca çektiği sayfayı; bu yüzden
@@ -617,6 +701,19 @@ class AppState extends ChangeNotifier {
       _serverImpact = await accountRepository.impact();
     } on ApiException {
       // Etki ikincil veri; hatası ana akışı bozmamalı.
+    }
+    notifyListeners();
+  }
+
+  /// Topluluk etkisini çeker.
+  ///
+  /// Giriş gerektirmez: keşif ekranındaki kart giriş yapmamış kullanıcıya da
+  /// gösteriliyor. Eskiden bu kartta sabit "1.204 kg" yazıyordu.
+  Future<void> refreshCommunityImpact() async {
+    try {
+      communityImpact = await accountRepository.communityImpact();
+    } on ApiException {
+      // Kart veri gelmezse gizlenir.
     }
     notifyListeners();
   }
@@ -651,8 +748,29 @@ class AppState extends ChangeNotifier {
   // Bildirimler
   // ---------------------------------------------------------------------------
 
-  int get unreadNotificationCount =>
-      notifications.where((item) => !item.isRead).length;
+  /// Rozet için okunmamış sayısı.
+  ///
+  /// Liste çekildiyse ondan sayılır (anında güncellenir); çekilmediyse
+  /// sunucudan alınan sayı kullanılır.
+  int get unreadNotificationCount => notifications.isNotEmpty
+      ? notifications.where((item) => !item.isRead).length
+      : (_serverUnreadCount ?? 0);
+
+  /// Okunmamış bildirim sayısını sunucudan alır.
+  ///
+  /// Tüm listeyi çekmeden yalnızca sayıyı sormak, rozet için tasarlanmış
+  /// hafif bir uç. Eskiden hiç çağrılmıyordu ve rozet hiç görünmüyordu.
+  Future<void> refreshUnreadCount() async {
+    if (!isAuthenticated) return;
+    try {
+      _serverUnreadCount = await accountRepository.unreadCount();
+      notifyListeners();
+    } on ApiException {
+      // Rozet ikincil; hata gösterilmez.
+    }
+  }
+
+  int? _serverUnreadCount;
 
   Future<void> refreshNotifications() async {
     isLoadingNotifications = true;
@@ -796,6 +914,7 @@ class AppState extends ChangeNotifier {
   void dispose() {
     _realtimeSubscription?.cancel();
     _pushTokenSubscription?.cancel();
+    _pushMessageSubscription?.cancel();
     realtime?.dispose();
     super.dispose();
   }

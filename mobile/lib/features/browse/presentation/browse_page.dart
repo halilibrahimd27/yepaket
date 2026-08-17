@@ -480,7 +480,15 @@ class _LiveMapViewState extends State<_LiveMapView>
               const SizedBox(height: 8),
               FloatingActionButton.small(
                 heroTag: 'location',
-                onPressed: () => mapController.move(center, 14.5),
+                // Sabit bir Kadıköy koordinatına dönüyordu; artık gerçek
+                // konuma gider, konum yoksa izin ister.
+                onPressed: () async {
+                  if (userPoint != null) {
+                    mapController.move(userPoint, 15);
+                    return;
+                  }
+                  await context.read<AppState>().requestLocation();
+                },
                 backgroundColor: AppColors.forest,
                 foregroundColor: AppColors.lime,
                 child: const Icon(Icons.my_location_rounded),
@@ -524,8 +532,8 @@ class _LiveMapViewState extends State<_LiveMapView>
                           ),
                         ),
                         const Spacer(),
-                        const Text(
-                          '24 PAKET YAKININDA',
+                        Text(
+                          '${bags.length} PAKET YAKININDA',
                           style: TextStyle(
                             fontSize: 8,
                             fontWeight: FontWeight.w900,

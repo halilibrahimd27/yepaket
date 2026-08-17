@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -22,6 +24,9 @@ class CheckoutPage extends StatefulWidget {
 class _CheckoutPageState extends State<CheckoutPage> {
   int quantity = 1;
   bool loading = false;
+  bool _awaitingPayment = false;
+  bool _loadingBag = false;
+  String? _bagError;
 
   /// Idempotency anahtarı **ekran açılışında bir kez** üretilir.
   ///
@@ -49,8 +54,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
     switch (result) {
       case Success(value: final order):
         if (order.paymentRedirectUrl != null) {
-          await _openPayment(order);
+          final paid = await _openPayment(order);
           if (!mounted) return;
+
+          // Ödeme tamamlanmadıysa başarı ekranına gitmek yanıltıcı olur:
+          // eskiden sonuç ne olursa olsun "sipariş alındı" gösteriliyordu.
+          if (!paid) return;
         }
         context.go('/order-success/${order.id}');
       case Failure(message: final message):
@@ -58,20 +67,99 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
   }
 
-  /// 3D Secure sayfasını açar ve dönüşte ödemeyi tamamlar.
-  Future<void> _openPayment(AppOrder order) async {
+  /// 3D Secure sayfasını açar ve ödemenin tamamlanmasını bekler.
+  ///
+  /// **Zamanlama sorunu:** `launchUrl` tarayıcı açılır açılmaz döner —
+  /// kullanıcı ödemeyi bitirdiğinde değil. Hemen `confirmPayment` çağırmak,
+  /// kullanıcı daha kart bilgisini girmeden "ödeme tamamlanmadı" hatası
+  /// vermek demekti.
+  ///
+  /// Bunun yerine uygulama ön plana döndüğünde siparişin sunucudaki durumu
+  /// sorulur. Sağlayıcı webhook'u ödemeyi zaten işaretlemiş olabilir; o
+  /// durumda `confirmPayment` çağırmaya gerek bile kalmaz.
+  Future<bool> _openPayment(AppOrder order) async {
     final url = Uri.tryParse(order.paymentRedirectUrl ?? '');
-    if (url == null) return;
+    if (url == null) return false;
 
+    setState(() => _awaitingPayment = true);
     await launchUrl(url, mode: LaunchMode.externalApplication);
 
-    if (!mounted) return;
-    final result = await context.read<AppState>().confirmPayment(order.id);
+    // Uygulama arka plana gidip geri gelene kadar bekle.
+    await _returnedToForeground();
+    if (!mounted) return false;
 
-    if (!mounted) return;
-    if (result case Failure(message: final message)) {
-      showErrorSnack(context, message);
+    final state = context.read<AppState>();
+
+    // Sağlayıcı ödemeyi tamamladığında sunucuya KENDİSİ döner
+    // (callbackUrl + webhook). Bizim işimiz yalnızca sonucu beklemek.
+    //
+    // Burada `confirmPayment` çağırmak tehlikeli olurdu: sağlayıcı henüz
+    // yanıt vermemişse sunucu ödemeyi BAŞARISIZ sayıp rezervasyonu geri
+    // veriyor — kullanıcı kart bilgisini girerken siparişi iptal etmiş
+    // olurduk. Bu yüzden yalnızca durumu OKUYORUZ.
+    for (var attempt = 0; attempt < 8; attempt++) {
+      final result = await state.refreshOrder(order.id);
+      if (!mounted) return false;
+
+      if (result case Success(value: final updated)) {
+        if (updated.status != OrderStatus.paymentPending) {
+          setState(() => _awaitingPayment = false);
+          return true;
+        }
+      }
+
+      await Future<void>.delayed(const Duration(seconds: 2));
+      if (!mounted) return false;
     }
+
+    setState(() => _awaitingPayment = false);
+    showErrorSnack(
+      context,
+      'Ödeme henüz onaylanmadı. Siparişlerim ekranından takip edebilirsin.',
+    );
+    return false;
+  }
+
+  /// Uygulama ön plana dönene kadar bekler.
+  Future<void> _returnedToForeground() async {
+    final completer = Completer<void>();
+    final observer = _ForegroundObserver(() {
+      if (!completer.isCompleted) completer.complete();
+    });
+
+    WidgetsBinding.instance.addObserver(observer);
+    try {
+      // Üst sınır: kullanıcı ödeme sayfasında çok uzun kalırsa sonsuza
+      // kadar beklenmez.
+      await completer.future.timeout(
+        const Duration(minutes: 5),
+        onTimeout: () {},
+      );
+    } finally {
+      WidgetsBinding.instance.removeObserver(observer);
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Paket yerel listede yoksa sunucudan çekilir: derin bağlantıyla ya da
+    // eskimiş listeden gelen kullanıcı, satın alabileceği bir pakette
+    // "Paket bulunamadı" görüyordu.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final state = context.read<AppState>();
+      if (state.bagById(widget.bagId) != null) return;
+
+      setState(() => _loadingBag = true);
+      final result = await state.loadBag(widget.bagId);
+      if (!mounted) return;
+
+      setState(() {
+        _loadingBag = false;
+        if (result case Failure(message: final message)) _bagError = message;
+      });
+    });
   }
 
   @override
@@ -82,9 +170,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
       return Scaffold(
         appBar: AppBar(title: const Text('Sipariş özeti')),
         body: AsyncContent(
-          isLoading: false,
-          error: null,
-          isEmpty: true,
+          isLoading: _loadingBag,
+          error: _bagError,
+          isEmpty: !_loadingBag && _bagError == null,
           emptyTitle: 'Paket bulunamadı',
           emptyMessage: 'Bu paketin satışı sona ermiş olabilir.',
           emptyIcon: Icons.shopping_bag_outlined,
@@ -262,7 +350,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(18, 10, 18, 12),
           child: PrimaryButton(
-            label: '${Formats.money(totalMinor)} öde ve rezerve et',
+            label: _awaitingPayment
+                ? 'Ödeme bekleniyor...'
+                : '${Formats.money(totalMinor)} öde ve rezerve et',
             loading: loading,
             onPressed: () => confirm(bag),
           ),
@@ -370,5 +460,26 @@ class _PriceRow extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+/// Uygulamanın ön plana dönmesini haber veren gözlemci.
+class _ForegroundObserver extends WidgetsBindingObserver {
+  _ForegroundObserver(this.onResumed);
+
+  final VoidCallback onResumed;
+
+  /// Yalnızca arka plana çıkıp geri dönüşte tetiklenir; ilk `resumed`
+  /// bildirimi (tarayıcı hiç açılmadıysa) yok sayılır.
+  bool _wentBackground = false;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      _wentBackground = true;
+    } else if (state == AppLifecycleState.resumed && _wentBackground) {
+      onResumed();
+    }
   }
 }

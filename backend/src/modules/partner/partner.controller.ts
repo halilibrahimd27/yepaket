@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseIntPipe,
   ParseUUIDPipe,
   Patch,
   Post,
@@ -165,15 +166,19 @@ export class PartnerController {
   @Get('orders')
   @ApiOperation({
     summary: 'İşletmenin siparişleri',
-    description: 'Müşteri adı maskelenir; teslimde eşleştirme için baş harf yeterlidir.',
+    description:
+      'En yeniden eskiye sıralanır ve sayfalanır. Müşteri adı maskelenir; ' +
+      'teslimde eşleştirme için baş harf yeterlidir.',
   })
   listOrders(
     @CurrentUser() user: AuthenticatedUser,
     @Query('storeId') storeId?: string,
     @Query('status') status?: string,
     @Query('date') date?: string,
+    @Query('page', new ParseIntPipe({ optional: true })) page?: number,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
   ) {
-    return this.partner.listOrders(user, { storeId, status, date });
+    return this.partner.listOrders(user, { storeId, status, date, page, limit });
   }
 
   @Post('orders/:id/confirm-pickup')

@@ -57,9 +57,35 @@ abstract final class ApiConfig {
     defaultValue: 'com.yepaket.yepaket',
   );
 
-  /// Gerçek sağlayıcı SDK'ları bağlanana kadar sosyal girişi denemek için
-  /// kullanılan geliştirme e-postası. Üretimde boş bırakılır ve sunucu
-  /// sahte jetonu zaten reddeder.
+  // ---------------------------------------------------------------------------
+  // Sosyal giriş
+  //
+  // Kimlikler derleme değişkeniyle verilir. Boş bırakılan sağlayıcı giriş
+  // ekranında **hiç görünmez**: dokunulduğunda mutlaka hata verecek bir
+  // butonu göstermek kullanıcıyı uygulamanın bozuk olduğuna ikna eder.
+  // ---------------------------------------------------------------------------
+
+  /// iOS için Google istemci kimliği (Android'de google-services.json yeterli).
+  static const googleIosClientId = String.fromEnvironment(
+    'GOOGLE_IOS_CLIENT_ID',
+  );
+
+  /// Sunucu tarafı Google istemci kimliği — kimlik jetonunun `aud` alanı
+  /// buna eşit olmalı; sunucu doğrulaması bunu kontrol ediyor.
+  static const googleServerClientId = String.fromEnvironment(
+    'GOOGLE_SERVER_CLIENT_ID',
+  );
+
+  /// Google girişi bu derlemede kullanılabilir mi?
+  ///
+  /// Android'de yapılandırma `google-services.json` üzerinden gelir; o dosya
+  /// varsa Firebase de kurulmuş demektir.
+  static bool get googleSignInConfigured =>
+      googleServerClientId.isNotEmpty || googleIosClientId.isNotEmpty;
+
+  /// Geliştirme sırasında sosyal girişi taklit etmek için kullanılan e-posta.
+  ///
+  /// Yalnızca dummy modda anlamlıdır; sunucu sahte jetonu üretimde reddeder.
   static const oauthDevToken = String.fromEnvironment('OAUTH_DEV_EMAIL');
 
   /// Sunucunun beklediği platform değeri (`DevicePlatform` enum'ı).
@@ -82,6 +108,10 @@ abstract final class ApiEndpoints {
   static const refresh = '/auth/refresh';
   static const me = '/auth/me';
   static const notificationPreferences = '/auth/me/notification-preferences';
+  static const changePassword = '/auth/change-password';
+  static const sessions = '/auth/sessions';
+  static String session(String id) => '/auth/sessions/$id';
+  static const logoutAll = '/auth/logout-all';
   static String oauth(String provider) => '/auth/oauth/$provider';
 
   static const nearbyBags = '/bags/nearby';

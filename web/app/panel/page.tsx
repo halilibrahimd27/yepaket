@@ -45,7 +45,12 @@ export default async function Panel() {
         orders={orders.data}
         payout={payout.data}
         store={store.data}
-        loadFailed={dashboard.failed}
+        // Herhangi bir isteğin düşmesi kullanıcıya bildirilmeli: eskiden
+        // yalnızca dashboard'a bakılıyor, paketler veya siparişler
+        // çekilemediğinde ekran sessizce boş görünüyordu.
+        loadFailed={
+          dashboard.failed || bags.failed || orders.failed || payout.failed
+        }
       />
     </>
   );

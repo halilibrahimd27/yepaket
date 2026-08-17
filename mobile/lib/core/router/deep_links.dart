@@ -61,9 +61,9 @@ class DeepLinkHandler {
   /// - `yepaket://sifre-sifirla?token=…`  (özel şema — host = yol)
   /// - `https://yepaket.app/sifre-sifirla?token=…` (App Link — path = yol)
   ///
-  /// Ayrı bir fonksiyon olmasının nedeni test edilebilirliği: yönlendirici
-  /// olmadan da davranış doğrulanabiliyor.
-  @visibleForTesting
+  /// Ayrı bir fonksiyon olmasının nedeni hem test edilebilirlik hem yeniden
+  /// kullanım: bildirim listesi de sunucunun gönderdiği derin bağlantıyı
+  /// aynı kurallarla çözüyor.
   static String? resolve(Uri uri) {
     // Özel şemada "yepaket://sifre-sifirla" için host 'sifre-sifirla' olur,
     // path boş kalır. https bağlantısında ise tersi geçerlidir.
@@ -86,7 +86,13 @@ class DeepLinkHandler {
         return segments.length > 1 ? '/bag/${segments[1]}' : null;
 
       case 'siparis':
-        return segments.length > 1 ? '/orders' : null;
+      case 'orders':
+        // Sunucu bildirimlerde `yepaket://orders/{id}` gönderiyor.
+        return '/orders';
+
+      case 'stores':
+        // İşletmenin paketleri ana listede görünür.
+        return '/home';
 
       case 'teslim':
         // Paylaşılan teslim bağlantısı: aktif sipariş ekranına götürür.

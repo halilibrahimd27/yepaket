@@ -31,13 +31,24 @@ function cookieOptions(maxAge: number) {
   };
 }
 
-export async function storeSession(tokens: {
-  access_token: string;
-  refresh_token: string;
-}): Promise<void> {
+export async function storeSession(
+  tokens: { access_token: string; refresh_token: string },
+  options: { persistent?: boolean } = {},
+): Promise<void> {
   const jar = await cookies();
+
   jar.set(ACCESS_COOKIE, tokens.access_token, cookieOptions(ACCESS_MAX_AGE));
-  jar.set(REFRESH_COOKIE, tokens.refresh_token, cookieOptions(REFRESH_MAX_AGE));
+
+  // `persistent: false` → `maxAge` verilmez, çerez oturumluk olur ve
+  // tarayıcı kapandığında silinir. "Beni hatırla" işaretini kaldıran
+  // kullanıcının beklentisi budur; ortak bilgisayarda önemlidir.
+  jar.set(
+    REFRESH_COOKIE,
+    tokens.refresh_token,
+    options.persistent === false
+      ? { ...cookieOptions(REFRESH_MAX_AGE), maxAge: undefined }
+      : cookieOptions(REFRESH_MAX_AGE),
+  );
 }
 
 export async function clearSession(): Promise<void> {

@@ -327,6 +327,7 @@ class AppUser {
     required this.email,
     required this.role,
     this.avatarUrl,
+    this.phone,
   });
 
   final String id;
@@ -334,6 +335,7 @@ class AppUser {
   final String email;
   final String role;
   final String? avatarUrl;
+  final String? phone;
 
   /// Avatar yerine gösterilecek baş harfler.
   String get initials {
@@ -459,6 +461,44 @@ class SharedPickup {
   }
 }
 
+/// Açık oturum (cihaz yönetimi ekranı için).
+class UserSession {
+  const UserSession({
+    required this.id,
+    required this.deviceId,
+    required this.platform,
+    required this.lastUsedAt,
+    required this.isCurrent,
+    this.ipAddress,
+  });
+
+  final String id;
+  final String deviceId;
+  final String platform;
+  final DateTime lastUsedAt;
+  final bool isCurrent;
+  final String? ipAddress;
+
+  factory UserSession.fromJson(Map<String, dynamic> json) => UserSession(
+    id: json['id']?.toString() ?? '',
+    deviceId: json['device_id']?.toString() ?? '',
+    platform: json['platform']?.toString() ?? 'WEB',
+    lastUsedAt:
+        DateTime.tryParse(json['last_used_at']?.toString() ?? '')?.toLocal() ??
+        DateTime.now(),
+    isCurrent: json['is_current'] as bool? ?? false,
+    ipAddress: json['ip_address']?.toString(),
+  );
+
+  String get platformLabel => switch (platform.toUpperCase()) {
+    'IOS' => 'iPhone / iPad',
+    'ANDROID' => 'Android',
+    _ => 'Web tarayıcı',
+  };
+
+  String get lastUsedLabel => Formats.relative(lastUsedAt);
+}
+
 /// Bildirim tercihleri.
 ///
 /// Sunucudaki `NotificationPreferences` ile birebir aynı; eksik anahtar
@@ -506,6 +546,7 @@ class AppNotification {
     required this.type,
     required this.isRead,
     required this.createdAt,
+    this.deepLink,
   });
 
   final String id;
@@ -514,6 +555,10 @@ class AppNotification {
   final String type;
   final bool isRead;
   final DateTime createdAt;
+
+  /// Sunucunun bildirimle birlikte gönderdiği derin bağlantı
+  /// (`yepaket://orders/{id}`). Yoksa türe göre yönlendirilir.
+  final String? deepLink;
 
   /// "3 dk önce", "dün" gibi göreli zaman.
   String get timeLabel => Formats.relative(createdAt);
@@ -525,6 +570,7 @@ class AppNotification {
     type: type,
     isRead: isRead ?? this.isRead,
     createdAt: createdAt,
+    deepLink: deepLink,
   );
 }
 

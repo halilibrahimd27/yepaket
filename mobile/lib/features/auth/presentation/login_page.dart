@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../data/state/app_state.dart';
+import '../../../core/auth/social_sign_in.dart';
 import '../../../core/network/api_config.dart';
 import '../../../shared/widgets/async_content.dart';
 import '../../../shared/widgets/brand_logo.dart';
@@ -37,6 +38,14 @@ class _LoginPageState extends State<LoginPage> {
   );
   bool loading = false;
 
+  final _social = SocialSignIn();
+
+  /// Bu derlemede kullanılabilir sağlayıcılar; dummy modda ikisi de gösterilir
+  /// ki geliştirme sırasında akış denenebilsin.
+  late final List<SocialProvider> _providers = ApiConfig.dummyMode
+      ? SocialProvider.values
+      : SocialSignIn.available;
+
   @override
   void dispose() {
     email.dispose();
@@ -67,30 +76,49 @@ class _LoginPageState extends State<LoginPage> {
 
   /// Sosyal giriş.
   ///
-  /// Gerçek sağlayıcı SDK'sı bağlanana kadar geliştirme jetonu gönderilir;
-  /// sunucu bu jetonu yalnızca OAUTH_ALLOW_MOCK açıkken kabul eder ve bu
-  /// bayrak üretimde reddedilir.
-  Future<void> signInProvider(String provider) async {
+  /// Jetonu sağlayıcının kendi SDK'sı üretir; sunucu bunu JWKS ile doğrular.
+  /// Eskiden uydurma bir `mock:` dizesi gönderiliyordu ve sunucu bunu
+  /// üretimde reddettiği için üç buton da her zaman hata veriyordu.
+  Future<void> signInProvider(SocialProvider provider) async {
     if (loading) return;
     setState(() => loading = true);
 
-    final idToken = ApiConfig.oauthDevToken.isEmpty
-        ? ''
-        : 'mock:${provider}_dev:${ApiConfig.oauthDevToken}';
-
-    final result = await context.read<AppState>().signInWithProvider(
-      provider,
-      idToken,
-    );
+    final token = ApiConfig.dummyMode
+        // Yerel geliştirmede sağlayıcı SDK'sı kurulu olmayabilir; sunucu
+        // sahte jetonu yalnızca OAUTH_ALLOW_MOCK açıkken kabul eder.
+        ? SocialToken(
+            'mock:${provider.apiValue}_dev:${ApiConfig.oauthDevToken}',
+          )
+        : await _social.signIn(provider);
 
     if (!mounted) return;
-    setState(() => loading = false);
 
-    switch (result) {
-      case Success():
-        context.go(_safeReturnTo(widget.returnTo));
-      case Failure(message: final message):
+    switch (token) {
+      case SocialCancelled():
+        // Kullanıcı vazgeçti; hata göstermek yanıltıcı olur.
+        setState(() => loading = false);
+        return;
+
+      case SocialFailure(message: final message):
+        setState(() => loading = false);
         showErrorSnack(context, message);
+        return;
+
+      case SocialToken(idToken: final idToken):
+        final result = await context.read<AppState>().signInWithProvider(
+          provider.apiValue,
+          idToken,
+        );
+
+        if (!mounted) return;
+        setState(() => loading = false);
+
+        switch (result) {
+          case Success():
+            context.go(_safeReturnTo(widget.returnTo));
+          case Failure(message: final message):
+            showErrorSnack(context, message);
+        }
     }
   }
 
@@ -120,66 +148,59 @@ class _LoginPageState extends State<LoginPage> {
                   style: TextStyle(fontSize: 16, color: AppColors.muted),
                 ),
                 const SizedBox(height: 28),
-                _SocialButton(
-                  label: 'Apple ile devam et',
-                  icon: const Icon(Icons.apple, color: Colors.white, size: 23),
-                  background: Colors.black,
-                  foreground: Colors.white,
-                  onPressed: loading ? null : () => signInProvider('apple'),
-                ),
-                const SizedBox(height: 11),
-                _SocialButton(
-                  label: 'Google ile devam et',
-                  icon: const Text(
-                    'G',
-                    style: TextStyle(
-                      fontSize: 19,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF4285F4),
-                    ),
-                  ),
-                  onPressed: loading ? null : () => signInProvider('google'),
-                ),
-                const SizedBox(height: 11),
-                _SocialButton(
-                  label: 'Outlook ile devam et',
-                  icon: Container(
-                    width: 20,
-                    height: 20,
-                    alignment: Alignment.center,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF0A64C9),
-                      borderRadius: BorderRadius.all(Radius.circular(4)),
-                    ),
-                    child: const Text(
-                      'O',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
+
+                // Yalnızca bu derlemede yapılandırılmış sağlayıcılar
+                // gösterilir. Microsoft mobilde listelenmiyor: yerel bir SDK
+                // bağlanmadı, sunucudaki uç ileride web için duruyor.
+                for (final provider in _providers) ...[
+                  _SocialButton(
+                    label: '${provider.label} ile devam et',
+                    icon: switch (provider) {
+                      SocialProvider.apple => const Icon(
+                        Icons.apple,
                         color: Colors.white,
+                        size: 23,
                       ),
-                    ),
-                  ),
-                  onPressed: loading ? null : () => signInProvider('microsoft'),
-                ),
-                const SizedBox(height: 26),
-                const Row(
-                  children: [
-                    Expanded(child: Divider()),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 12),
-                      child: Text(
-                        'veya e-posta ile',
+                      SocialProvider.google => const Text(
+                        'G',
                         style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.muted,
+                          fontSize: 19,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF4285F4),
                         ),
                       ),
-                    ),
-                    Expanded(child: Divider()),
-                  ],
-                ),
+                    },
+                    background: provider == SocialProvider.apple
+                        ? Colors.black
+                        : Colors.white,
+                    foreground: provider == SocialProvider.apple
+                        ? Colors.white
+                        : AppColors.ink,
+                    onPressed: loading ? null : () => signInProvider(provider),
+                  ),
+                  const SizedBox(height: 11),
+                ],
+
+                if (_providers.isNotEmpty) ...[
+                  const SizedBox(height: 15),
+                  const Row(
+                    children: [
+                      Expanded(child: Divider()),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 12),
+                        child: Text(
+                          'veya e-posta ile',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.muted,
+                          ),
+                        ),
+                      ),
+                      Expanded(child: Divider()),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 22),
                 TextField(
                   controller: email,

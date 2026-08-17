@@ -9,7 +9,7 @@ import { getDeviceId, storeSession } from "@/lib/session";
  * betik oturumu çalamaz.
  */
 export async function POST(request: Request) {
-  let payload: { email?: string; password?: string };
+  let payload: { email?: string; password?: string; remember?: boolean };
 
   try {
     payload = (await request.json()) as { email?: string; password?: string };
@@ -46,7 +46,9 @@ export async function POST(request: Request) {
       },
     });
 
-    await storeSession(data);
+    // "Beni hatırla" işaretli değilse yenileme çerezi oturumluk olur:
+    // tarayıcı kapandığında silinir ve ortak bilgisayarda oturum kalmaz.
+    await storeSession(data, { persistent: payload.remember !== false });
 
     // Jetonlar yanıtta dönmez; yalnızca çerezde durur.
     return Response.json({ data: { user: data.user } });

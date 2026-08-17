@@ -39,6 +39,9 @@ export function LoginForm({ returnTo }: { returnTo: string }) {
         body: JSON.stringify({
           email: String(form.get("email") ?? ""),
           password: String(form.get("password") ?? ""),
+          // Onay kutusu daha önce hiç okunmuyordu: işaretlense de
+          // kaldırılsa da çerez ömrü aynıydı.
+          remember: form.get("remember") === "on",
         }),
       });
 

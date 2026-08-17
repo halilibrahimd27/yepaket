@@ -78,6 +78,19 @@ class RealtimeClient {
           .build(),
     );
 
+    // Yeniden bağlanmadan ÖNCE jeton tazelenir.
+    //
+    // `setAuth` bağlantı kurulurken bir kez okunur ve donar. Erişim jetonu
+    // 15 dakikada dolduğu için, ağ kesintisinden sonra yapılan yeniden
+    // bağlanma denemeleri süresi geçmiş jetonla gidiyor ve sunucu tarafından
+    // reddediliyordu — soket bir daha hiç bağlanmıyordu.
+    socket.onReconnectAttempt((_) async {
+      final fresh = await _api.accessToken();
+      if (fresh != null) {
+        socket.auth = {'token': fresh};
+      }
+    });
+
     socket.onConnect((_) {
       _log('bağlandı');
       // Yeniden bağlanmada abonelikler kaybolur; geri kuruluyor.
@@ -92,7 +105,10 @@ class RealtimeClient {
     // Sunucu jetonu reddederse yeniden denemenin anlamı yok.
     socket.on('error', (data) {
       _log('sunucu hatası: $data');
-      if (data is Map && data['code'] == 'UNAUTHENTICATED') {
+
+      // Jeton süresi dolduysa yenilenmiş jetonla tekrar denenebilir; oturum
+      // iptal edildiyse denemenin anlamı yok.
+      if (data is Map && data['code'] == 'SESSION_REVOKED') {
         socket.dispose();
         _socket = null;
       }

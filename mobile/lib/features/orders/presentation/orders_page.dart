@@ -8,58 +8,124 @@ import '../../../data/state/app_state.dart';
 import '../../../shared/widgets/app_image.dart';
 import '../../../shared/widgets/responsive_content.dart';
 
-class OrdersPage extends StatelessWidget {
+class OrdersPage extends StatefulWidget {
   const OrdersPage({super.key});
+
+  @override
+  State<OrdersPage> createState() => _OrdersPageState();
+}
+
+class _OrdersPageState extends State<OrdersPage> {
+  @override
+  void initState() {
+    super.initState();
+    // Sayfa açılışında sunucudan tazelenir. Eskiden yalnızca uygulama
+    // açılışında doldurulan önbellek çiziliyordu: başka bir cihazdan
+    // yapılan iptal ya da ödeme onayı burada hiç görünmüyordu.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<AppState>().refreshOrders();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final completed = state.pastOrders;
+
+    // Ödemesi tamamlanmamış siparişler hiçbir bölümde görünmüyordu:
+    // kullanıcı parasının ne olduğunu göremiyordu.
+    final pending = state.orders
+        .where((order) => order.status == OrderStatus.paymentPending)
+        .toList();
+
+    final active = state.orders
+        .where(
+          (order) =>
+              order.status.isActive &&
+              order.status != OrderStatus.paymentPending,
+        )
+        .toList();
+
     return Scaffold(
       appBar: AppBar(title: const Text('Siparişlerim')),
-      body: ResponsiveContent(
-        maxWidth: 720,
-        padding: const EdgeInsets.fromLTRB(18, 10, 18, 28),
-        child: ListView(
-          children: [
-            if (state.activeOrder != null &&
-                state.activeOrder!.status.isActive) ...[
-              Text('Aktif', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 11),
-              _OrderTile(
-                order: state.activeOrder!,
-                active: true,
-                onTap: () => context.push('/active-order'),
-              ),
-              const SizedBox(height: 25),
-            ],
-            Text('Geçmiş', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 11),
-            if (completed.isEmpty)
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(23),
+      body: RefreshIndicator(
+        onRefresh: state.refreshOrders,
+        child: ResponsiveContent(
+          maxWidth: 720,
+          padding: const EdgeInsets.fromLTRB(18, 10, 18, 28),
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              if (pending.isNotEmpty) ...[
+                Text(
+                  'Ödeme bekleyen',
+                  style: Theme.of(context).textTheme.titleLarge,
                 ),
-                child: const Text(
-                  'Tamamlanan siparişin henüz yok.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: AppColors.muted),
+                const SizedBox(height: 4),
+                const Text(
+                  'Ödemesi tamamlanmazsa rezervasyon otomatik olarak düşer.',
+                  style: TextStyle(fontSize: 11.5, color: AppColors.muted),
                 ),
-              )
-            else
-              ...completed.map(
-                (order) => Padding(
-                  padding: const EdgeInsets.only(bottom: 11),
-                  child: _OrderTile(
-                    order: order,
-                    // Teslim alınmış sipariş değerlendirmeye açılır.
-                    onTap: () => context.push('/rating/${order.id}'),
+                const SizedBox(height: 11),
+                ...pending.map(
+                  (order) => Padding(
+                    padding: const EdgeInsets.only(bottom: 11),
+                    child: _OrderTile(
+                      order: order,
+                      onTap: () => context.push('/checkout/${order.bag.id}'),
+                    ),
                   ),
                 ),
-              ),
-          ],
+                const SizedBox(height: 25),
+              ],
+              if (active.isNotEmpty) ...[
+                Text('Aktif', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 11),
+                ...active.map(
+                  (order) => Padding(
+                    padding: const EdgeInsets.only(bottom: 11),
+                    child: _OrderTile(
+                      order: order,
+                      active: true,
+                      onTap: () => context.push('/active-order'),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 25),
+              ],
+              Text('Geçmiş', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 11),
+              if (completed.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(23),
+                  ),
+                  child: const Text(
+                    'Tamamlanan siparişin henüz yok.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: AppColors.muted),
+                  ),
+                )
+              else
+                ...completed.map(
+                  (order) => Padding(
+                    padding: const EdgeInsets.only(bottom: 11),
+                    child: _OrderTile(
+                      order: order,
+                      // Yalnızca TESLİM ALINMIŞ sipariş değerlendirilebilir.
+                      // Eskiden iptal edilen ve iade edilen siparişler de
+                      // değerlendirme ekranına götürülüyordu; sunucu bunları
+                      // reddediyor ve kullanıcı anlamsız bir hata alıyordu.
+                      onTap: order.status == OrderStatus.collected
+                          ? () => context.push('/rating/${order.id}')
+                          : null,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -73,7 +139,9 @@ class _OrderTile extends StatelessWidget {
     this.active = false,
   });
   final AppOrder order;
-  final VoidCallback onTap;
+
+  /// `null` ise satır tıklanabilir görünmez.
+  final VoidCallback? onTap;
   final bool active;
 
   @override

@@ -7,8 +7,23 @@ import '../../../data/state/app_state.dart';
 import '../../../shared/widgets/bag_card.dart';
 import '../../../shared/widgets/responsive_content.dart';
 
-class FavoritesPage extends StatelessWidget {
+class FavoritesPage extends StatefulWidget {
   const FavoritesPage({super.key});
+
+  @override
+  State<FavoritesPage> createState() => _FavoritesPageState();
+}
+
+class _FavoritesPageState extends State<FavoritesPage> {
+  @override
+  void initState() {
+    super.initState();
+    // Sekmeye her girişte tazelenir; eskiden yalnızca uygulama açılışında
+    // doldurulan liste çiziliyordu.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<AppState>().refreshFavorites();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

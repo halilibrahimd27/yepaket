@@ -11,8 +11,23 @@ import '../../../data/state/app_state.dart';
 import '../../../shared/widgets/app_image.dart';
 import '../../../shared/widgets/responsive_content.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  @override
+  void initState() {
+    super.initState();
+    // Etki sayaçları yalnızca açılışta çekiliyordu: teslim alınan bir
+    // siparişten sonra profile bakan kullanıcı eski rakamları görüyordu.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<AppState>().refreshImpact();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

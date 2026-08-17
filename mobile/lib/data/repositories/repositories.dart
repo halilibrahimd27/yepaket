@@ -26,6 +26,24 @@ abstract interface class AuthRepository {
   /// E-postadaki jetonla yeni şifreyi kaydeder.
   Future<void> confirmPasswordReset(String token, String newPassword);
 
+  /// Profil bilgilerini günceller.
+  Future<AppUser> updateProfile({String? name, String? phone});
+
+  /// Oturum içi şifre değişimi (mevcut şifre doğrulanır).
+  Future<void> changePassword(String currentPassword, String newPassword);
+
+  /// Açık oturumları listeler.
+  Future<List<UserSession>> sessions();
+
+  /// Belirli bir oturumu kapatır.
+  Future<void> revokeSession(String sessionId);
+
+  /// Tüm cihazlardan çıkış yapar.
+  Future<void> logoutEverywhere();
+
+  /// Hesabı kapatır (KVKK).
+  Future<void> deleteAccount();
+
   Future<AppUser> signInWithProvider(
     String provider, {
     required String idToken,
@@ -83,6 +101,40 @@ class DummyAuthRepository implements AuthRepository {
 
   @override
   Future<void> confirmPasswordReset(String token, String newPassword) async {}
+
+  @override
+  Future<AppUser> updateProfile({String? name, String? phone}) async {
+    _user = AppUser(
+      id: _user?.id ?? 'demo-user',
+      name: name ?? _user?.name ?? 'Demo',
+      email: _user?.email ?? 'demo@yepaket.app',
+      role: _user?.role ?? 'CONSUMER',
+      phone: phone ?? _user?.phone,
+    );
+    return _user!;
+  }
+
+  @override
+  Future<void> changePassword(
+    String currentPassword,
+    String newPassword,
+  ) async {}
+
+  @override
+  Future<List<UserSession>> sessions() async => const [];
+
+  @override
+  Future<void> revokeSession(String sessionId) async {}
+
+  @override
+  Future<void> logoutEverywhere() async {
+    _user = null;
+  }
+
+  @override
+  Future<void> deleteAccount() async {
+    _user = null;
+  }
 
   @override
   Future<AppUser?> currentUser() async => _user;
@@ -162,6 +214,48 @@ class RemoteAuthRepository implements AuthRepository {
       ApiEndpoints.confirmPasswordReset,
       data: {'token': token, 'newPassword': newPassword},
     );
+  }
+
+  @override
+  Future<AppUser> updateProfile({String? name, String? phone}) async {
+    final response = await _client.patch(
+      ApiEndpoints.me,
+      data: {'name': ?name, 'phone': ?phone},
+    );
+    return _parseUser(_data(response));
+  }
+
+  @override
+  Future<void> changePassword(
+    String currentPassword,
+    String newPassword,
+  ) async {
+    await _client.post(
+      ApiEndpoints.changePassword,
+      data: {'currentPassword': currentPassword, 'newPassword': newPassword},
+    );
+  }
+
+  @override
+  Future<List<UserSession>> sessions() async {
+    final response = await _client.get(ApiEndpoints.sessions);
+    return _list(response).map(UserSession.fromJson).toList();
+  }
+
+  @override
+  Future<void> revokeSession(String sessionId) =>
+      _client.delete(ApiEndpoints.session(sessionId));
+
+  @override
+  Future<void> logoutEverywhere() async {
+    await _client.post(ApiEndpoints.logoutAll);
+    await _client.clearTokens();
+  }
+
+  @override
+  Future<void> deleteAccount() async {
+    await _client.delete(ApiEndpoints.me);
+    await _client.clearTokens();
   }
 
   @override
@@ -368,6 +462,9 @@ abstract interface class OrderRepository {
     required String idempotencyKey,
   });
   Future<AppOrder> confirmPayment(String orderId);
+
+  /// Siparişin güncel hâlini okur (yan etkisiz).
+  Future<AppOrder> byId(String orderId);
   Future<PickupNonce> requestPickupNonce(String orderId);
 
   /// Arkadaşa teslim bağlantısı üretir (asıl teslim kodu paylaşılmaz).
@@ -407,6 +504,10 @@ class DummyOrderRepository implements OrderRepository {
     _orders.insert(0, order);
     return order;
   }
+
+  @override
+  Future<AppOrder> byId(String orderId) async =>
+      _orders.firstWhere((order) => order.id == orderId);
 
   @override
   Future<AppOrder> confirmPayment(String orderId) async =>
@@ -473,6 +574,12 @@ class RemoteOrderRepository implements OrderRepository {
   ///
   /// Sunucu bu ucu idempotent uygular; kullanıcı ödeme ekranından döndükten
   /// sonra tekrar çağrılması sorun yaratmaz.
+  @override
+  Future<AppOrder> byId(String orderId) async {
+    final response = await _client.get(ApiEndpoints.order(orderId));
+    return _parseOrder(_data(response));
+  }
+
   @override
   Future<AppOrder> confirmPayment(String orderId) async {
     final response = await _client.post(
@@ -592,6 +699,7 @@ AppUser _parseUser(Map<String, dynamic> json) => AppUser(
   email: json['email'] as String? ?? '',
   role: json['role'] as String? ?? 'CONSUMER',
   avatarUrl: json['avatar_url'] as String?,
+  phone: json['phone'] as String?,
 );
 
 SurpriseBag _parseBag(Map<String, dynamic> json) {
@@ -721,6 +829,9 @@ OrderStatus _parseStatus(Object? value) {
 
 abstract interface class AccountRepository {
   Future<UserImpact> impact();
+
+  /// Topluluk toplam etkisi (giriş gerektirmez).
+  Future<UserImpact> communityImpact();
   Future<List<AppNotification>> notifications();
   Future<int> unreadCount();
   Future<void> markNotificationRead(String id);
@@ -754,6 +865,14 @@ class DummyAccountRepository implements AccountRepository {
 
   @override
   Future<UserImpact> impact() async => UserImpact.empty;
+
+  @override
+  Future<UserImpact> communityImpact() async => const UserImpact(
+    savedBags: 1240,
+    moneySavedMinor: 18_600_000,
+    co2Kg: 3348,
+    waterLiters: 1_004_400,
+  );
 
   @override
   Future<List<AppNotification>> notifications() async =>
@@ -837,6 +956,12 @@ class RemoteAccountRepository implements AccountRepository {
   @override
   Future<UserImpact> impact() async {
     final response = await _client.get(ApiEndpoints.impact);
+    return _impactFromJson(_data(response));
+  }
+
+  @override
+  Future<UserImpact> communityImpact() async {
+    final response = await _client.get(ApiEndpoints.communityImpact);
     return _impactFromJson(_data(response));
   }
 
@@ -968,6 +1093,7 @@ AppNotification _notificationFromJson(Map<String, dynamic> json) =>
       createdAt:
           DateTime.tryParse(json['created_at']?.toString() ?? '')?.toLocal() ??
           DateTime.now(),
+      deepLink: _asMap(json['data'])['deepLink']?.toString(),
     );
 
 SupportTicket _ticketFromJson(Map<String, dynamic> json) => SupportTicket(

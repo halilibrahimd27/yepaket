@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/router/deep_links.dart';
 import '../../../data/models/models.dart';
 import '../../../data/state/app_state.dart';
 import '../../../shared/widgets/async_content.dart';
@@ -80,13 +81,29 @@ class _NotificationsPageState extends State<NotificationsPage> {
       state.markNotificationRead(notification.id);
     }
 
-    // Bildirim türüne göre ilgili ekrana götürür; eşleşme yoksa listede kalır.
+    // Önce sunucunun gönderdiği derin bağlantı denenir; yoksa türe düşülür.
+    final link = notification.deepLink;
+    if (link != null) {
+      final target = DeepLinkHandler.resolve(Uri.parse(link));
+      if (target != null) {
+        context.push(target);
+        return;
+      }
+    }
+
+    // Değerler sunucudaki `NotificationType` enum'ının küçük harfli hâli.
+    // Eskiden burada 'order_reminder' ve 'bag_published' aranıyordu; sunucu
+    // hiçbir zaman bu değerleri göndermiyordu, dolayısıyla hiçbir bildirim
+    // dokunulduğunda bir yere gitmiyordu.
     switch (notification.type) {
-      case 'order_reminder':
       case 'order_status':
+      case 'pickup_reminder':
         context.push('/orders');
-      case 'bag_published':
-      case 'favorite_available':
+      case 'bag_available':
+        context.go('/home');
+      case 'support':
+        context.push('/support');
+      case 'impact':
         context.go('/home');
     }
   }
@@ -100,10 +117,11 @@ class _NotificationCard extends StatelessWidget {
 
   /// Bildirim türünü ikona eşler; bilinmeyen tür genel bir ikon alır.
   IconData get _icon => switch (notification.type) {
-    'favorite_available' || 'bag_published' => Icons.favorite_rounded,
-    'order_reminder' || 'order_status' => Icons.schedule_rounded,
+    'bag_available' => Icons.favorite_rounded,
+    'order_status' || 'pickup_reminder' => Icons.schedule_rounded,
     'impact' => Icons.eco_rounded,
     'campaign' => Icons.campaign_outlined,
+    'support' => Icons.support_agent_rounded,
     _ => Icons.notifications_rounded,
   };
 
