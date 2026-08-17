@@ -49,7 +49,7 @@ test("keeps motion, SVG store icons and reduced-motion support in the product UI
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
 
-  assert.match(page, /<LandingPage \/>/);
+  assert.match(page, /LandingPage/);
   assert.match(layout, /YePaket — İyi yemek çöpe gitmesin/);
   assert.match(landing, /SiAppstore/);
   assert.match(landing, /SiGoogleplay/);
@@ -62,5 +62,12 @@ test("keeps motion, SVG store icons and reduced-motion support in the product UI
   assert.match(packageJson, /"react-icons"/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
 
-  await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
+  // Şablon artıkları temizlendi; geri gelirlerse test uyarsın.
+  await assert.rejects(access(new URL("../app/chatgpt-auth.ts", import.meta.url)));
+  await assert.rejects(access(new URL("../db", import.meta.url)));
+
+  // Oturum koruması ve gerçek API istemcisi yerinde olmalı.
+  const session = await readFile(new URL("../lib/session.ts", import.meta.url), "utf8");
+  assert.match(session, /httpOnly: true/);
+  assert.match(session, /requireUser/);
 });

@@ -1,0 +1,64 @@
+import { apiRequest, ApiError } from "@/lib/api";
+import { storeSession } from "@/lib/session";
+
+/**
+ * Giriş vekili (proxy).
+ *
+ * Tarayıcı doğrudan API'ye gitmez: jetonlar httpOnly çereze burada yazılır
+ * ve istemci JavaScript'i onları hiç görmez. Böylece sayfaya sızan bir
+ * betik oturumu çalamaz.
+ */
+export async function POST(request: Request) {
+  let payload: { email?: string; password?: string };
+
+  try {
+    payload = (await request.json()) as { email?: string; password?: string };
+  } catch {
+    return Response.json(
+      { error: { code: "VALIDATION_FAILED", message: "Geçersiz istek." } },
+      { status: 400 },
+    );
+  }
+
+  if (!payload.email || !payload.password) {
+    return Response.json(
+      { error: { code: "VALIDATION_FAILED", message: "E-posta ve şifre zorunludur." } },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const { data } = await apiRequest<{
+      access_token: string;
+      refresh_token: string;
+      user: { id: string; name: string; role: string };
+    }>("/auth/login", {
+      method: "POST",
+      body: {
+        email: payload.email,
+        password: payload.password,
+        device: {
+          deviceId: `web-${crypto.randomUUID()}`,
+          platform: "WEB",
+        },
+      },
+    });
+
+    await storeSession(data);
+
+    // Jetonlar yanıtta dönmez; yalnızca çerezde durur.
+    return Response.json({ data: { user: data.user } });
+  } catch (error) {
+    if (error instanceof ApiError) {
+      return Response.json(
+        { error: { code: error.code, message: error.message } },
+        { status: error.status },
+      );
+    }
+
+    return Response.json(
+      { error: { code: "INTERNAL_ERROR", message: "Giriş yapılamadı." } },
+      { status: 502 },
+    );
+  }
+}

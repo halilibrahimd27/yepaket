@@ -23,13 +23,13 @@ export const metadata: Metadata = {
     siteName: "YePaket",
     title: "YePaket — İyi yemek çöpe gitmesin",
     description: "Mahallendeki sürpriz paketleri kurtar; bütçene ve gezegene iyi bak.",
-    images: [{ url: "/og.png", width: 1200, height: 630, alt: "YePaket — İyi yemek çöpe gitmesin" }],
+    images: [{ url: "/og.jpg", width: 1200, height: 630, alt: "YePaket — İyi yemek çöpe gitmesin" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "YePaket — İyi yemek çöpe gitmesin",
     description: "Mahallendeki sürpriz paketleri kurtar; bütçene ve gezegene iyi bak.",
-    images: ["/og.png"],
+    images: ["/og.jpg"],
   },
 };
 

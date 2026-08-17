@@ -26,7 +26,14 @@ import {
 } from "lucide-react";
 import { SiAppstore, SiGoogleplay } from "react-icons/si";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { faqItems, SurpriseBag, surpriseBags } from "../data";
+import {
+  formatDistance,
+  formatMoney,
+  formatPickupWindow,
+  type Bag,
+  type CommunityImpact,
+} from "@/lib/api";
+import { faqItems } from "../data";
 import { PublicFooter } from "./PublicFooter";
 import { PublicHeader } from "./PublicHeader";
 
@@ -73,19 +80,48 @@ function StoreLinks({ compact = false }: { compact?: boolean }) {
   );
 }
 
-export function LandingPage() {
+/** Sözleşmedeki küçük harfli kategori değerini arayüz etiketine çevirir. */
+const CATEGORY_LABELS: Record<string, string> = {
+  bakery: "Fırın",
+  market: "Market",
+  cafe: "Kafe",
+  restaurant: "Restoran",
+};
+
+export function LandingPage({
+  bags,
+  impact,
+  apiUnavailable,
+}: {
+  bags: Bag[];
+  impact: CommunityImpact | null;
+  apiUnavailable: boolean;
+}) {
   const root = useRef<HTMLDivElement>(null);
   const [category, setCategory] = useState("Tümü");
-  const [favorites, setFavorites] = useState<string[]>([surpriseBags[2].id]);
-  const [selectedBag, setSelectedBag] = useState<SurpriseBag | null>(null);
+  const [query, setQuery] = useState("");
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [selectedBag, setSelectedBag] = useState<Bag | null>(null);
   const [openFaq, setOpenFaq] = useState(0);
   const [notice, setNotice] = useState("");
   const [activeStep, setActiveStep] = useState(0);
 
-  const filteredBags = useMemo(
-    () => category === "Tümü" ? surpriseBags : surpriseBags.filter((bag) => bag.category === category),
-    [category],
-  );
+  const filteredBags = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase("tr-TR");
+
+    return bags.filter((bag) => {
+      const matchesCategory =
+        category === "Tümü" || CATEGORY_LABELS[bag.category] === category;
+
+      if (!matchesCategory) return false;
+      if (!normalizedQuery) return true;
+
+      return (
+        bag.title.toLocaleLowerCase("tr-TR").includes(normalizedQuery) ||
+        bag.store.name.toLocaleLowerCase("tr-TR").includes(normalizedQuery)
+      );
+    });
+  }, [bags, category, query]);
 
   useLayoutEffect(() => {
     const media = gsap.matchMedia();
@@ -199,7 +235,9 @@ export function LandingPage() {
           <div className="mx-auto grid max-w-[1240px] items-center gap-14 lg:grid-cols-[1.02fr_.98fr]">
             <div data-hero-copy className="relative z-10">
               <div className="eyebrow"><Sparkles size={15} /> Her paket yeni bir şans</div>
-              <h1 className="mt-7 max-w-[720px] text-[clamp(3.7rem,7.2vw,7.2rem)] font-black leading-[.88] tracking-[-.075em] text-[var(--forest)]">
+              {/* leading-[.88] Türkçe büyük harf aksanlarını (İ, Ğ, Ö) üstten kırpıyordu;
+                  .95 hem sıkı hem güvenli. */}
+              <h1 className="mt-7 max-w-[720px] text-[clamp(3.7rem,7.2vw,7.2rem)] font-black leading-[.95] tracking-[-.075em] text-[var(--forest)]">
                 İyi yemek <span className="text-stroke">çöpe</span> gitmesin.
               </h1>
               <p className="mt-8 max-w-xl text-lg leading-8 text-[var(--muted)] sm:text-xl">
@@ -281,7 +319,13 @@ export function LandingPage() {
               </div>
               <div className="flex items-center gap-2 rounded-full bg-[var(--cream)] p-2">
                 <Search size={18} className="ml-3 text-[var(--muted)]" />
-                <input aria-label="Paket ara" placeholder="Paket veya işletme ara" className="w-full bg-transparent py-2 text-sm outline-none sm:w-56" />
+                <input
+                  aria-label="Paket veya işletme ara"
+                  placeholder="Paket veya işletme ara"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  className="w-full bg-transparent py-2 text-sm outline-none sm:w-56"
+                />
               </div>
             </div>
             <div data-reveal className="no-scrollbar mt-10 flex gap-2 overflow-x-auto pb-2">
@@ -291,28 +335,48 @@ export function LandingPage() {
                 </button>
               ))}
             </div>
+            {filteredBags.length === 0 && (
+              <div
+                data-reveal
+                className="mt-8 rounded-[28px] border border-dashed border-[var(--forest)]/20 bg-[var(--cream)] px-6 py-14 text-center"
+              >
+                <p className="text-lg font-black text-[var(--forest)]">
+                  {apiUnavailable
+                    ? "Paketler şu an yüklenemedi."
+                    : query || category !== "Tümü"
+                      ? "Bu filtreye uygun paket bulunamadı."
+                      : "Şu anda yayında paket yok."}
+                </p>
+                <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[var(--muted)]">
+                  {apiUnavailable
+                    ? "Bağlantı sorunu olabilir; birazdan tekrar deneyin."
+                    : "Yeni paketler gün içinde eklenir. Uygulamadan bildirim açarsan ilk sen haberdar olursun."}
+                </p>
+              </div>
+            )}
+
             <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
               {filteredBags.map((bag) => (
                 <article key={bag.id} data-reveal className="group overflow-hidden rounded-[28px] border border-black/5 bg-[var(--cream)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_55px_rgba(6,40,31,.12)]">
                   <div className="relative h-56 overflow-hidden">
-                    <img src={bag.image} alt={`${bag.store} sürpriz paketi`} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
+                    <img src={bag.image_urls[0] ?? "/images/bag-bakery.jpg"} alt={`${bag.store.name} sürpriz paketi`} loading="lazy" decoding="async" className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
                     <button onClick={() => toggleFavorite(bag.id)} aria-label="Favoriye ekle" className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full bg-white/90 text-[var(--forest)] shadow-sm backdrop-blur">
                       <Heart size={18} fill={favorites.includes(bag.id) ? "currentColor" : "none"} />
                     </button>
-                    <span className="absolute bottom-4 left-4 rounded-full bg-[var(--lime)] px-3 py-1.5 text-[11px] font-black text-[var(--forest)]">SON {bag.left} PAKET</span>
+                    <span className="absolute bottom-4 left-4 rounded-full bg-[var(--lime)] px-3 py-1.5 text-[11px] font-black text-[var(--forest)]">SON {bag.available_quantity} PAKET</span>
                   </div>
                   <div className="p-5">
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-xs font-bold uppercase tracking-[.12em] text-[var(--muted)]">{bag.store}</span>
-                      <span className="inline-flex items-center gap-1 text-xs font-bold"><Star size={13} fill="#f6b91c" color="#f6b91c" /> {bag.rating}</span>
+                      <span className="text-xs font-bold uppercase tracking-[.12em] text-[var(--muted)]">{bag.store.name}</span>
+                      <span className="inline-flex items-center gap-1 text-xs font-bold"><Star size={13} fill="#f6b91c" color="#f6b91c" /> {bag.rating.overall.toFixed(1)}</span>
                     </div>
                     <h3 className="mt-2 text-xl font-black tracking-[-.03em] text-[var(--forest)]">{bag.title}</h3>
                     <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-[var(--muted)]">
-                      <span className="inline-flex items-center gap-1.5"><Clock3 size={14} />{bag.pickup}</span>
-                      <span className="inline-flex items-center gap-1.5"><Navigation size={14} />{bag.distance}</span>
+                      <span className="inline-flex items-center gap-1.5"><Clock3 size={14} />{formatPickupWindow(bag.pickup_window)}</span>
+                      <span className="inline-flex items-center gap-1.5"><Navigation size={14} />{formatDistance(bag.distance_meters) ?? bag.store.address.split(",").pop()?.trim()}</span>
                     </div>
                     <div className="mt-5 flex items-end justify-between border-t border-black/8 pt-5">
-                      <div><span className="text-xs text-[var(--muted)] line-through">{bag.originalPrice} ₺</span><strong className="ml-2 text-2xl font-black text-[var(--forest)]">{bag.price} ₺</strong></div>
+                      <div><span className="text-xs text-[var(--muted)] line-through">{formatMoney(bag.original_value)}</span><strong className="ml-2 text-2xl font-black text-[var(--forest)]">{formatMoney(bag.sale_price)}</strong></div>
                       <button onClick={() => setSelectedBag(bag)} className="grid h-11 w-11 place-items-center rounded-full bg-[var(--forest)] text-white transition group-hover:bg-[var(--lime)] group-hover:text-[var(--forest)]" aria-label={`${bag.title} detayını aç`}><ArrowRight size={18} /></button>
                     </div>
                   </div>
@@ -320,7 +384,7 @@ export function LandingPage() {
               ))}
             </div>
             <div data-reveal className="mt-10 text-center">
-              <button className="soft-button px-7 py-4">Haritada tümünü gör <MapPin size={17} /></button>
+              <a href="#uygulama" className="soft-button px-7 py-4">Haritayı uygulamada aç <MapPin size={17} aria-hidden="true" /></a>
             </div>
           </div>
         </section>
@@ -411,7 +475,7 @@ export function LandingPage() {
               <img data-impact-photo src="/images/bag-market.jpg" alt="Pazarda taze sebzeler" className="absolute -inset-y-[10%] inset-x-0 h-[120%] w-full object-cover" />
               <div className="absolute inset-0 bg-gradient-to-t from-[var(--forest)]/90 to-transparent" />
               <div className="absolute bottom-8 left-8 right-8 flex items-end justify-between">
-                <div><span className="text-sm font-bold text-white/65">Topluluk etkisi</span><strong className="mt-2 block text-4xl font-black">24.820 paket</strong></div>
+                <div><span className="text-sm font-bold text-white/65">Topluluk etkisi</span><strong className="mt-2 block text-4xl font-black">{impact ? `${impact.saved_bags.toLocaleString("tr-TR")} paket` : "—"}</strong></div>
                 <Leaf className="text-[var(--lime)]" size={42} />
               </div>
             </div>
@@ -420,7 +484,20 @@ export function LandingPage() {
               <h2 className="mt-7 text-4xl font-black leading-[1.02] tracking-[-.055em] sm:text-5xl">Küçük paket,<br />büyük fark.</h2>
               <p className="mt-6 max-w-xl text-lg leading-8 text-white/65">Her kurtarılan paket yalnızca bütçeni değil; üretim için kullanılan suyu, enerjiyi ve emeği de korur.</p>
               <div className="mt-10 grid grid-cols-2 gap-4">
-                {[["67 ton", "CO₂e önlendi"], ["₺3,4M", "topluluk tasarrufu"], ["320+", "aktif işletme"], ["%92", "teslim başarısı"]].map(([value, label]) => (
+                {(impact
+                  ? [
+                      [`${impact.co2e_kg.toLocaleString("tr-TR")} kg`, "CO₂e önlendi"],
+                      [formatMoney(impact.money_saved), "topluluk tasarrufu"],
+                      [`${impact.active_stores}`, "aktif işletme"],
+                      [`${impact.saved_bags.toLocaleString("tr-TR")}`, "kurtarılan paket"],
+                    ]
+                  : [
+                      ["—", "CO₂e önlendi"],
+                      ["—", "topluluk tasarrufu"],
+                      ["—", "aktif işletme"],
+                      ["—", "kurtarılan paket"],
+                    ]
+                ).map(([value, label]) => (
                   <div key={label} className="rounded-3xl bg-white/8 p-5"><strong className="text-2xl font-black text-[var(--lime)] sm:text-3xl">{value}</strong><span className="mt-1 block text-xs text-white/55">{label}</span></div>
                 ))}
               </div>
@@ -451,10 +528,10 @@ export function LandingPage() {
                     <p className="mt-1 text-sm text-white/60">Bugün ne kurtarıyoruz?</p>
                   </div>
                   <div className="-mt-3 space-y-3 px-4">
-                    {surpriseBags.slice(0, 2).map((bag) => (
+                    {bags.slice(0, 2).map((bag) => (
                       <div key={bag.id} className="flex gap-3 rounded-3xl bg-white p-3 shadow-lg">
-                        <img src={bag.image} alt="" className="h-24 w-24 rounded-2xl object-cover" />
-                        <div className="min-w-0 flex-1 py-1"><span className="text-[10px] font-bold uppercase text-[var(--muted)]">{bag.store}</span><strong className="mt-1 block truncate text-sm text-[var(--forest)]">{bag.title}</strong><span className="mt-2 block text-xs text-[var(--muted)]">{bag.pickup}</span><strong className="mt-1 block text-lg text-[var(--forest)]">{bag.price} ₺</strong></div>
+                        <img src={bag.image_urls[0] ?? "/images/bag-bakery.jpg"} alt="" loading="lazy" className="h-24 w-24 rounded-2xl object-cover" />
+                        <div className="min-w-0 flex-1 py-1"><span className="text-[10px] font-bold uppercase text-[var(--muted)]">{bag.store.name}</span><strong className="mt-1 block truncate text-sm text-[var(--forest)]">{bag.title}</strong><span className="mt-2 block text-xs text-[var(--muted)]">{formatPickupWindow(bag.pickup_window)}</span><strong className="mt-1 block text-lg text-[var(--forest)]">{formatMoney(bag.sale_price)}</strong></div>
                       </div>
                     ))}
                   </div>
@@ -499,12 +576,12 @@ export function LandingPage() {
       {selectedBag && (
         <div className="fixed inset-0 z-[80] grid place-items-end bg-[#06281f]/50 p-0 backdrop-blur-sm sm:place-items-center sm:p-5" role="dialog" aria-modal="true" aria-label="Paket detayı">
           <div className="max-h-[92vh] w-full overflow-auto rounded-t-[34px] bg-white shadow-2xl sm:max-w-[660px] sm:rounded-[34px]">
-            <div className="relative h-72"><img src={selectedBag.image} alt="" className="h-full w-full object-cover sm:rounded-t-[34px]" /><button onClick={() => setSelectedBag(null)} className="absolute right-4 top-4 grid h-11 w-11 place-items-center rounded-full bg-white/90 text-[var(--forest)]" aria-label="Kapat"><X size={20} /></button></div>
+            <div className="relative h-72"><img src={selectedBag.image_urls[0] ?? "/images/bag-bakery.jpg"} alt="" className="h-full w-full object-cover sm:rounded-t-[34px]" /><button onClick={() => setSelectedBag(null)} className="absolute right-4 top-4 grid h-11 w-11 place-items-center rounded-full bg-white/90 text-[var(--forest)]" aria-label="Kapat"><X size={20} /></button></div>
             <div className="p-6 sm:p-8">
-              <div className="flex items-start justify-between gap-5"><div><span className="text-xs font-black uppercase tracking-[.15em] text-[var(--muted)]">{selectedBag.store}</span><h2 className="mt-2 text-3xl font-black tracking-[-.045em] text-[var(--forest)]">{selectedBag.title}</h2></div><div className="rounded-2xl bg-[var(--lime-soft)] px-4 py-3 text-right"><span className="block text-xs text-[var(--muted)] line-through">{selectedBag.originalPrice} ₺</span><strong className="text-2xl font-black text-[var(--forest)]">{selectedBag.price} ₺</strong></div></div>
-              <div className="mt-6 grid gap-3 sm:grid-cols-2"><div className="detail-tile"><Clock3 size={19} /><span><small>Teslim zamanı</small>{selectedBag.pickup}</span></div><div className="detail-tile"><MapPin size={19} /><span><small>Adres</small>{selectedBag.address}</span></div></div>
-              <h3 className="mt-7 font-black text-[var(--forest)]">Pakette neler olabilir?</h3><p className="mt-2 leading-7 text-[var(--muted)]">{selectedBag.description}</p>
-              <div className="mt-7 flex items-center justify-between rounded-2xl bg-[var(--cream)] p-4"><span className="inline-flex items-center gap-2 font-bold"><Star size={17} fill="#f6b91c" color="#f6b91c" /> {selectedBag.rating} <small className="font-normal text-[var(--muted)]">({selectedBag.reviews} değerlendirme)</small></span><span className="font-black text-[var(--forest)]">Son {selectedBag.left}</span></div>
+              <div className="flex items-start justify-between gap-5"><div><span className="text-xs font-black uppercase tracking-[.15em] text-[var(--muted)]">{selectedBag.store.name}</span><h2 className="mt-2 text-3xl font-black tracking-[-.045em] text-[var(--forest)]">{selectedBag.title}</h2></div><div className="rounded-2xl bg-[var(--lime-soft)] px-4 py-3 text-right"><span className="block text-xs text-[var(--muted)] line-through">{formatMoney(selectedBag.original_value)}</span><strong className="text-2xl font-black text-[var(--forest)]">{formatMoney(selectedBag.sale_price)}</strong></div></div>
+              <div className="mt-6 grid gap-3 sm:grid-cols-2"><div className="detail-tile"><Clock3 size={19} /><span><small>Teslim zamanı</small>{formatPickupWindow(selectedBag.pickup_window)}</span></div><div className="detail-tile"><MapPin size={19} /><span><small>Adres</small>{selectedBag.store.address}</span></div></div>
+              <h3 className="mt-7 font-black text-[var(--forest)]">Pakette neler olabilir?</h3><p className="mt-2 leading-7 text-[var(--muted)]">{selectedBag.description ?? "Paketin içeriği işletmenin o gün kalan ürünlerine göre değişir."}</p>
+              <div className="mt-7 flex items-center justify-between rounded-2xl bg-[var(--cream)] p-4"><span className="inline-flex items-center gap-2 font-bold"><Star size={17} fill="#f6b91c" color="#f6b91c" /> {selectedBag.rating.overall.toFixed(1)} <small className="font-normal text-[var(--muted)]">({selectedBag.rating.count} değerlendirme)</small></span><span className="font-black text-[var(--forest)]">Son {selectedBag.available_quantity}</span></div>
               <button onClick={reserveBag} className="brand-button mt-7 w-full justify-center px-6 py-4 text-base">Mobil uygulamada rezerve et <ArrowRight size={18} /></button>
             </div>
           </div>

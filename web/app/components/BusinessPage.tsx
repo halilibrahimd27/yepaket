@@ -27,6 +27,8 @@ export function BusinessPage() {
   const [bags, setBags] = useState(8);
   const [value, setValue] = useState(390);
   const [submitted, setSubmitted] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const monthly = Math.round(bags * value * 0.34 * 26);
 
@@ -40,9 +42,45 @@ export function BusinessPage() {
     return () => context.revert();
   }, []);
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSubmitted(true);
+    setError(null);
+    setSending(true);
+
+    const form = new FormData(event.currentTarget);
+
+    try {
+      const response = await fetch("/api/forms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: "partner-application",
+          payload: {
+            businessName: String(form.get("businessName") ?? ""),
+            businessType: String(form.get("businessType") ?? ""),
+            contactName: String(form.get("contactName") ?? ""),
+            phone: String(form.get("phone") ?? ""),
+            email: String(form.get("email") ?? ""),
+            city: String(form.get("city") ?? ""),
+            district: String(form.get("district") ?? ""),
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as {
+          error?: { message?: string };
+        };
+        setError(body.error?.message ?? "Başvuru gönderilemedi. Lütfen tekrar deneyin.");
+        return;
+      }
+
+      setSubmitted(true);
+    } catch {
+      setError("Sunucuya ulaşılamadı. Bağlantınızı kontrol edip tekrar deneyin.");
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
@@ -126,17 +164,19 @@ export function BusinessPage() {
             <div data-reveal><div className="eyebrow"><BadgeCheck size={15} /> Ücretsiz ön kayıt</div><h2 className="section-title mt-6">İşletmeni<br />YePaket’e ekle.</h2><p className="mt-6 leading-7 text-[var(--muted)]">Ekibimiz bilgilerini inceleyip demo kurulum için seninle iletişime geçsin.</p></div>
             <div data-reveal className="rounded-[34px] bg-[var(--cream)] p-6 sm:p-9">
               {submitted ? (
-                <div className="grid min-h-[380px] place-items-center text-center"><div><div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-[var(--lime)] text-[var(--forest)]"><Check size={34} /></div><h3 className="mt-6 text-3xl font-black text-[var(--forest)]">Başvurun alındı!</h3><p className="mx-auto mt-3 max-w-sm leading-7 text-[var(--muted)]">Bu demo form veri göndermiyor. Gerçek backend bağlandığında <code>POST /v1/partners/applications</code> isteği kullanılacak.</p></div></div>
+                <div className="grid min-h-[380px] place-items-center text-center"><div><div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-[var(--lime)] text-[var(--forest)]"><Check size={34} /></div><h3 className="mt-6 text-3xl font-black text-[var(--forest)]">Başvurun alındı!</h3><p className="mx-auto mt-3 max-w-sm leading-7 text-[var(--muted)]">Ekibimiz bilgilerini inceleyip en kısa sürede seninle iletişime geçecek. Başvuru onayı e-posta ile bildirilecek.</p></div></div>
               ) : (
                 <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
-                  <label className="form-label">İşletme adı<input required className="form-input" placeholder="Örn. Moda Fırını" /></label>
-                  <label className="form-label">İşletme türü<select className="form-input"><option>Fırın / Pastane</option><option>Kafe</option><option>Restoran</option><option>Market</option></select></label>
-                  <label className="form-label">Yetkili adı<input required className="form-input" placeholder="Ad Soyad" /></label>
-                  <label className="form-label">Telefon<input required className="form-input" placeholder="05xx xxx xx xx" /></label>
-                  <label className="form-label sm:col-span-2">E-posta<input required type="email" className="form-input" placeholder="isletme@ornek.com" /></label>
-                  <label className="form-label sm:col-span-2">Şehir / İlçe<input required className="form-input" placeholder="Kadıköy, İstanbul" /></label>
+                  <label className="form-label">İşletme adı<input required name="businessName" className="form-input" placeholder="Örn. Moda Fırını" /></label>
+                  <label className="form-label">İşletme türü<select name="businessType" className="form-input"><option>Fırın / Pastane</option><option>Kafe</option><option>Restoran</option><option>Market</option></select></label>
+                  <label className="form-label">Yetkili adı<input required name="contactName" className="form-input" placeholder="Ad Soyad" /></label>
+                  <label className="form-label">Telefon<input required name="phone" type="tel" className="form-input" placeholder="05xx xxx xx xx" /></label>
+                  <label className="form-label sm:col-span-2">E-posta<input required name="email" type="email" className="form-input" placeholder="isletme@ornek.com" /></label>
+                  <label className="form-label">Şehir<input required name="city" className="form-input" placeholder="İstanbul" /></label>
+                  <label className="form-label">İlçe<input required name="district" className="form-input" placeholder="Kadıköy" /></label>
                   <label className="sm:col-span-2 mt-2 flex items-start gap-3 text-xs leading-5 text-[var(--muted)]"><input required type="checkbox" className="mt-1 accent-[var(--forest)]" /> Başvuru ve demo kurulumu hakkında benimle iletişime geçilmesini kabul ediyorum.</label>
-                  <button className="brand-button mt-2 justify-center px-6 py-4 sm:col-span-2">Başvuruyu tamamla <ArrowRight size={18} /></button>
+                  {error && <div role="alert" className="rounded-2xl border border-[#e65d4f]/25 bg-[#e65d4f]/8 px-4 py-3 text-sm font-semibold text-[#b23b2f] sm:col-span-2">{error}</div>}
+                  <button disabled={sending} className="brand-button mt-2 justify-center px-6 py-4 disabled:opacity-60 sm:col-span-2">{sending ? "Gönderiliyor..." : "Başvuruyu tamamla"} <ArrowRight size={18} aria-hidden="true" /></button>
                 </form>
               )}
             </div>

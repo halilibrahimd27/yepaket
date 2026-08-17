@@ -11,11 +11,24 @@ export function PublicFooter() {
           <p className="mt-6 max-w-md text-lg leading-8 text-white/65">
             İyi yemek çöpe gitmesin. Mahallendeki sürpriz paketleri kurtar, bütçene ve gezegene iyi bak.
           </p>
+          {/* Çalışmayan düğme bırakmak yerine gerçek bağlantılar; ekran
+              okuyucu için her biri ayrı ayrı adlandırıldı. */}
           <div className="mt-7 flex gap-3">
-            {[Camera, BriefcaseBusiness, Mail].map((Icon, index) => (
-              <button key={index} aria-label="Sosyal medya" className="grid h-11 w-11 place-items-center rounded-full border border-white/15 text-white/70 transition hover:border-[var(--lime)] hover:text-[var(--lime)]">
-                <Icon size={18} />
-              </button>
+            {[
+              { Icon: Camera, label: "Instagram", href: "https://instagram.com/yepaket" },
+              { Icon: BriefcaseBusiness, label: "LinkedIn", href: "https://linkedin.com/company/yepaket" },
+              { Icon: Mail, label: "E-posta ile yaz", href: "mailto:merhaba@yepaket.app" },
+            ].map(({ Icon, label, href }) => (
+              <a
+                key={label}
+                href={href}
+                aria-label={label}
+                rel="noopener noreferrer"
+                target={href.startsWith("http") ? "_blank" : undefined}
+                className="grid h-11 w-11 place-items-center rounded-full border border-white/15 text-white/70 transition hover:border-[var(--lime)] hover:text-[var(--lime)]"
+              >
+                <Icon size={18} aria-hidden="true" />
+              </a>
             ))}
           </div>
         </div>
@@ -31,9 +44,9 @@ export function PublicFooter() {
         <div>
           <h3 className="font-extrabold">Yasal</h3>
           <div className="mt-5 flex flex-col gap-3 text-sm text-white/60">
-            <Link href="/destek">Gizlilik</Link>
-            <Link href="/destek">Kullanım koşulları</Link>
-            <Link href="/destek">Çerez tercihleri</Link>
+            <Link href="/gizlilik">Gizlilik</Link>
+            <Link href="/kosullar">Kullanım koşulları</Link>
+            <Link href="/gizlilik#cerezler">Çerez tercihleri</Link>
             <a href="mailto:merhaba@yepaket.app" className="inline-flex items-center gap-1">Bize ulaş <ArrowUpRight size={14} /></a>
           </div>
         </div>
