@@ -347,7 +347,6 @@ Yayına çıkmadan önce her maddeyi işaretleyin:
 | API uçlarının tamamı | [`docs/API_CONTRACT.md`](API_CONTRACT.md), [`backend/openapi.json`](../backend/openapi.json) |
 | Mimari kararlar ve gerekçeleri | [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) |
 | Yerelde çalıştırma | [`docs/LOCAL_DEV.md`](LOCAL_DEV.md) |
-| Dış bağımlılıkların tam listesi | [`docs/LAUNCH_CHECKLIST.md`](LAUNCH_CHECKLIST.md) |
 | Veri modeli | [`backend/prisma/schema.prisma`](../backend/prisma/schema.prisma) |
 | Üretim yığını | [`infra/docker-compose.prod.yml`](../infra/docker-compose.prod.yml) |
 | TLS ve güvenlik başlıkları | [`infra/caddy/Caddyfile`](../infra/caddy/Caddyfile) |
