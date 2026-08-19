@@ -308,6 +308,8 @@ async function main(): Promise<void> {
     if (seed.slug === 'kok-kahve') favoriteStoreId = store.id;
   }
 
+  await seedOrderHistory();
+
   if (favoriteStoreId) {
     await prisma.favorite.upsert({
       where: { userId_storeId: { userId: consumer.id, storeId: favoriteStoreId } },
@@ -328,6 +330,91 @@ async function main(): Promise<void> {
       `  paket        : ${bagCount}`,
     ].join('\n'),
   );
+}
+
+/**
+ * Geçmiş sipariş üretir.
+ *
+ * Etki sayaçları, panel grafikleri ve hakediş özeti tamamlanmış siparişlerden
+ * hesaplanıyor. Bunlar olmadan demo kurulumda her sayaç sıfır görünür.
+ */
+async function seedOrderHistory(): Promise<void> {
+  const consumer = await prisma.user.findUniqueOrThrow({
+    where: { email: 'demo@yepaket.app' },
+  });
+
+  const existing = await prisma.order.count({
+    where: { userId: consumer.id, status: 'COLLECTED' },
+  });
+  if (existing >= 40) return;
+
+  const stores = await prisma.store.findMany({
+    where: { status: 'APPROVED' },
+    include: { bags: { take: 1, orderBy: { createdAt: 'desc' } } },
+  });
+
+  const [{ value: startNo }] = await prisma.$queryRaw<[{ value: bigint }]>`
+    SELECT nextval('order_no_seq') AS value
+  `;
+
+  let counter = Number(startNo);
+  const created: { storeId: string; bagId: string; day: number; qty: number }[] = [];
+
+  // Son 30 güne yayılmış, günlere göre değişen hacim.
+  for (let day = 1; day <= 30; day += 1) {
+    const perDay = 1 + ((day * 7) % 3);
+    for (let i = 0; i < perDay; i += 1) {
+      const store = stores[(day + i) % stores.length];
+      const bag = store.bags[0];
+      if (!bag) continue;
+      created.push({ storeId: store.id, bagId: bag.id, day, qty: 1 + ((day + i) % 2) });
+    }
+  }
+
+  for (const item of created) {
+    const store = stores.find((s) => s.id === item.storeId)!;
+    const bag = store.bags[0];
+
+    const collectedAt = new Date(Date.now() - item.day * 24 * 3600 * 1000);
+    const unit = bag.salePriceMinor;
+    const total = unit * item.qty;
+    const commission = Math.round((total * store.commissionRateBps) / 10_000);
+
+    await prisma.order.create({
+      data: {
+        orderNo: `YP-${String(counter++).padStart(6, '0')}`,
+        userId: consumer.id,
+        storeId: store.id,
+        bagId: bag.id,
+        quantity: item.qty,
+        unitPriceMinor: unit,
+        totalMinor: total,
+        commissionMinor: commission,
+        netMinor: total - commission,
+        status: 'COLLECTED',
+        pickupStartsAt: collectedAt,
+        pickupEndsAt: new Date(collectedAt.getTime() + 30 * 60_000),
+        pickupCode: String(100_000 + (counter % 900_000)),
+        paidAt: collectedAt,
+        collectedAt,
+        createdAt: collectedAt,
+      },
+    });
+  }
+
+  // Mağaza sayaçlarını gerçek siparişlerle hizala.
+  for (const store of stores) {
+    const agg = await prisma.order.aggregate({
+      where: { storeId: store.id, status: 'COLLECTED' },
+      _sum: { quantity: true },
+    });
+    await prisma.store.update({
+      where: { id: store.id },
+      data: { rescuedBagCount: agg._sum.quantity ?? 0 },
+    });
+  }
+
+  console.info(`  ${created.length} geçmiş sipariş üretildi.`);
 }
 
 main()
