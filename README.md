@@ -6,7 +6,7 @@
 
 Flutter mobil uygulama · React web + işletme paneli · NestJS API · PostgreSQL + PostGIS
 
-![lisans](https://img.shields.io/badge/lisans-MIT-0B3B2E)
+![lisans](https://img.shields.io/badge/lisans-AGPL--3.0--only-0B3B2E)
 ![backend](https://img.shields.io/badge/backend-NestJS%2011-0B3B2E)
 ![mobil](https://img.shields.io/badge/mobil-Flutter%203.44-0B3B2E)
 ![web](https://img.shields.io/badge/web-React%2019%20RSC-0B3B2E)
@@ -307,4 +307,24 @@ docs/       API sözleşmesi, mimari, kurulum ve teslim dokümanı
 
 ## Lisans
 
-MIT — bkz. [LICENSE](LICENSE)
+Kaynak kod **GNU Affero General Public License v3.0 only**
+(`AGPL-3.0-only`) kapsamında sunulmaktadır — bkz. [LICENSE](LICENSE).
+
+Değiştirilmiş bir sürümü dağıtan veya ağ üzerinden kullanıcıların kullanımına
+sunanlar, ilgili kaynak kodunu AGPL-3.0 koşullarıyla kullanıcılarına erişilebilir
+kılmalıdır. Ticari kullanım mümkündür ancak aynı lisans yükümlülüklerine tabidir.
+
+**YePaket** adı, logosu, uygulama ikonları ve diğer marka unsurları AGPL-3.0
+lisansına dahil değildir. Değiştirilmiş veya yeniden dağıtılan sürümler kendi
+adını ve görsel kimliğini kullanmalıdır. Ayrıntılar için [TRADEMARKS.md](TRADEMARKS.md)
+dosyasına bakın.
+
+### Telif hakkı sahipleri
+
+- Copyright (c) 2026 Halil İbrahim Durmuş
+- Copyright (c) 2026 Sefa GÜR
+- Copyright (c) 2026 Rumi Oral
+- Copyright (c) 2026 Mustafa Oğuz Baran
+- Copyright (c) 2026 Muhammed Hükümdar
+
+Ayrıntılı bildirim için [NOTICE](NOTICE) dosyasına bakın.
